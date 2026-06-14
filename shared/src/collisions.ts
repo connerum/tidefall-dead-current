@@ -74,6 +74,26 @@ export function getIslandCollisions(loc: LocationDefinition): CollisionShape[] {
       rng();
       shapes.push({ cx: px + cx, cy: 1.2, cz: pz + cz, hw: 1.2, hh: 1.2, hd: 3, rotY });
     }
+  } else if (loc.biome === "tropical") {
+    // RNG consumption must match islandBuilder.ts exactly.
+    const rng = mulberry32((loc.position.x * 131 + loc.position.z) | 0);
+    // Palm tree trunks (18 trees, 3 rng calls each for position)
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + rng() * 0.4;
+      const rr = r * (0.15 + rng() * 0.65);
+      rng(); // skip rotation
+      shapes.push({ cx: px + Math.sin(a) * rr, cy: 2.5, cz: pz + Math.cos(a) * rr, r: 0.25, h: 5 });
+    }
+    // Grass tufts (60, 2 rng calls each — skip, no collision)
+    for (let i = 0; i < 60; i++) {
+      rng(); rng();
+    }
+    // Huts (6, 2 rng calls each)
+    for (let i = 0; i < 6; i++) {
+      const a = rng() * Math.PI * 2;
+      const rr = rng() * r * 0.5;
+      shapes.push({ cx: px + Math.sin(a) * rr, cy: 0.8, cz: pz + Math.cos(a) * rr, hw: 1.2, hh: 0.8, hd: 1.2, rotY: 0 });
+    }
   }
 
   return shapes;
@@ -130,9 +150,13 @@ export interface RayHit {
 }
 
 /**
- * Raycast against collision shapes and the flat ground plane (y=0).
+ * Raycast against collision shapes and the ground plane.
+ * The ground plane is at y = GROUND_Y which approximates the average
+ * displaced-terrain height so decals land on (not inside) the surface.
  * Returns the nearest hit point with surface normal, or null.
  */
+const GROUND_Y = 0.15;
+
 export function raycastEnvironment(
   ox: number, oy: number, oz: number,
   dx: number, dy: number, dz: number,
@@ -141,11 +165,11 @@ export function raycastEnvironment(
 ): RayHit | null {
   let best: RayHit | null = null;
 
-  // Ground plane at y = 0
+  // Ground plane
   if (dy < -0.001) {
-    const t = -oy / dy;
+    const t = (GROUND_Y - oy) / dy;
     if (t > 0 && t < maxDist) {
-      best = { x: ox + dx * t, y: 0, z: oz + dz * t, nx: 0, ny: 1, nz: 0, dist: t };
+      best = { x: ox + dx * t, y: GROUND_Y, z: oz + dz * t, nx: 0, ny: 1, nz: 0, dist: t };
     }
   }
 

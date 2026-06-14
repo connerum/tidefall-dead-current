@@ -163,7 +163,9 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
     const rng = mulberry32((loc.position.x * 131 + loc.position.z) | 0);
     const palmCount = 18;
     for (let i = 0; i < palmCount; i++) {
-      const tree = createPalmTreeModel(rng);
+      // Don't pass rng to model creation — only use it for positions so the
+      // collision module can replicate the same position sequence.
+      const tree = createPalmTreeModel();
       const a = (i / palmCount) * Math.PI * 2 + rng() * 0.4;
       const r = radius * (0.15 + rng() * 0.65);
       tree.position.set(Math.sin(a) * r, 0, Math.cos(a) * r);

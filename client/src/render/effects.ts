@@ -70,25 +70,20 @@ function getDecalTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Small flat scorch mark placed on a surface where a bullet impacted.
- * The circle is oriented so its face hugs the given world-space normal.
+ * Small dark scorch mark at a bullet impact point. Uses a sphere so it's
+ * visible from any angle without needing surface-normal orientation.
  */
 export function createImpactDecal(position: THREE.Vector3, normal: THREE.Vector3): THREE.Mesh {
-  const geometry = new THREE.CircleGeometry(0.18, 14);
+  const geometry = new THREE.SphereGeometry(0.1, 10, 10);
   const material = new THREE.MeshBasicMaterial({
-    map: getDecalTexture(),
+    color: 0x1a0e05,
     transparent: true,
     opacity: 0.85,
     depthWrite: false,
     depthTest: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -4,
-    side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(geometry, material);
-  // Nudge along the normal to avoid z-fighting with the surface.
-  mesh.position.copy(position).add(normal.clone().multiplyScalar(0.02));
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  mesh.position.copy(position);
   mesh.renderOrder = 998;
   return mesh;
 }
