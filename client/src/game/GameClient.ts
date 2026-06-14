@@ -5,7 +5,7 @@ import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
 import { getWaveDisplacement } from "../render/water.js";
 import { WeaponViewModel } from "../render/weaponViewModel.js";
-import { createMuzzleFlash, createTracer, createHitParticle } from "../render/effects.js";
+import { createMuzzleFlash, createTracer, createHitParticle, createImpactDecal } from "../render/effects.js";
 import { createPlayerModel, createScavengerModel, createDroneModel, createTurretModel, createSkiffModel } from "../render/models.js";
 import { AudioManager } from "./AudioManager.js";
 import type { Notifications } from "../ui/notifications.js";
@@ -45,6 +45,7 @@ export class GameClient {
   private alive = true;
   private muzzleFlash: THREE.PointLight;
   private effects: THREE.Object3D[] = [];
+  private raycaster = new THREE.Raycaster();
   private inventoryOpen = false;
   private craftingOpen = false;
   private mapOpen = false;
@@ -504,6 +505,45 @@ export class GameClient {
         dist: 0,
         speed: 220,
       } as any);
+
+      // Raycast against the scene to find where the bullet hits a solid surface.
+      this.raycaster.set(origin, dir);
+      this.raycaster.near = 1.0;
+      this.raycaster.far = w.effectiveRange * 1.5;
+      const hits = this.raycaster.intersectObject(this.scene.scene, true);
+      for (const hit of hits) {
+        const obj = hit.object;
+        // Skip non-solid surfaces: ocean, sky dome, sprites, translucent props.
+        if (obj === this.scene.water) continue;
+        if (obj instanceof THREE.Sprite) continue;
+        const mat = (obj as THREE.Mesh).material as THREE.Material;
+        if (mat instanceof THREE.ShaderMaterial) continue;
+        if ((mat as any).transparent && ((mat as any).opacity ?? 1) < 0.95) continue;
+
+        // Solid hit — place an impact decal.
+        const normal = hit.face
+          ? hit.face.normal.clone().transformDirection(obj.matrixWorld)
+          : new THREE.Vector3(0, 1, 0);
+        const decal = createImpactDecal(hit.point, normal);
+        this.scene.scene.add(decal);
+        this.effects.push({ type: "decal", obj: decal, life: 10, maxOpacity: 0.85 } as any);
+
+        // Cap decals so they don't accumulate forever.
+        let decalCount = 0;
+        let oldest: any = null;
+        for (const eff of this.effects as any[]) {
+          if (eff.type === "decal") {
+            decalCount++;
+            if (!oldest || eff.life < oldest.life) oldest = eff;
+          }
+        }
+        if (decalCount > 50 && oldest) {
+          this.scene.scene.remove(oldest.obj);
+          const idx = this.effects.indexOf(oldest);
+          if (idx >= 0) this.effects.splice(idx, 1);
+        }
+        break;
+      }
     }
     this.muzzleFlash.intensity *= 0.7;
   }
@@ -668,6 +708,11 @@ export class GameClient {
             mat.opacity = alpha;
           }
         });
+      }
+      // Fade decals out in the final second before they expire.
+      if (e.type === "decal" && e.life < 1) {
+        const mat = e.obj.material as THREE.MeshBasicMaterial;
+        if (mat) mat.opacity = e.maxOpacity * e.life;
       }
     }
   }

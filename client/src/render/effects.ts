@@ -49,3 +49,43 @@ export function createHitParticle(position: THREE.Vector3): THREE.Mesh {
   mesh.position.copy(position);
   return mesh;
 }
+
+// Shared scorch-mark texture so we don't allocate a canvas per bullet.
+let decalTexture: THREE.CanvasTexture | null = null;
+function getDecalTexture(): THREE.CanvasTexture {
+  if (decalTexture) return decalTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(8, 8, 8, 0.92)");
+  grad.addColorStop(0.4, "rgba(15, 12, 10, 0.75)");
+  grad.addColorStop(0.75, "rgba(20, 16, 12, 0.3)");
+  grad.addColorStop(1.0, "rgba(20, 16, 12, 0.0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  decalTexture = new THREE.CanvasTexture(canvas);
+  return decalTexture;
+}
+
+/**
+ * Small flat scorch mark placed on a surface where a bullet impacted.
+ * The circle is oriented so its face hugs the given world-space normal.
+ */
+export function createImpactDecal(position: THREE.Vector3, normal: THREE.Vector3): THREE.Mesh {
+  const geometry = new THREE.CircleGeometry(0.12, 14);
+  const material = new THREE.MeshBasicMaterial({
+    map: getDecalTexture(),
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  // Nudge along the normal to avoid z-fighting with the surface.
+  mesh.position.copy(position).add(normal.clone().multiplyScalar(0.015));
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  return mesh;
+}
