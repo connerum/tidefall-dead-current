@@ -10,7 +10,9 @@ let db: InstanceType<Awaited<ReturnType<typeof initSqlJs>>["Database"]>
 
 export async function initDatabase(): Promise<void> {
   if (SQL) return;
-  SQL = await initSqlJs();
+  SQL = await initSqlJs({
+    locateFile: (file) => path.resolve(`node_modules/sql.js/dist/${file}`),
+  });
 
   const dbPath = path.resolve(SERVER_CONFIG.dbPath);
   let data: Buffer | undefined;
