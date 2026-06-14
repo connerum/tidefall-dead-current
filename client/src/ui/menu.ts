@@ -6,7 +6,13 @@ export class MenuUI {
 
   constructor(onConnect: (name: string) => void) {
     this.onConnect = onConnect;
-    this.root = document.getElementById("ui-root")!;
+    // IMPORTANT: the menu must live in its own container. If it wrote
+    // directly into #ui-root, show()/hide() would wipe the HUD, inventory,
+    // crafting, map and death-screen overlays out of the DOM — which is why
+    // those panels appeared to "do nothing" during gameplay.
+    this.root = document.createElement("div");
+    this.root.className = "menu-container";
+    document.getElementById("ui-root")!.appendChild(this.root);
   }
 
   show(): void {
