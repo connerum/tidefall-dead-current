@@ -506,27 +506,27 @@ export class GameClient {
         speed: 220,
       } as any);
 
-      // Raycast against the scene to find where the bullet hits a solid surface.
+      // Raycast against island geometry (terrain, walls, structures, props)
+      // to find where the bullet impacts a solid surface.
       this.raycaster.set(origin, dir);
-      this.raycaster.near = 1.0;
+      this.raycaster.near = 0.5;
       this.raycaster.far = w.effectiveRange * 1.5;
-      const hits = this.raycaster.intersectObject(this.scene.scene, true);
-      for (const hit of hits) {
-        const obj = hit.object;
-        // Skip non-solid surfaces: ocean, sky dome, sprites, translucent props.
-        if (obj === this.scene.water) continue;
-        if (obj instanceof THREE.Sprite) continue;
-        const mat = (obj as THREE.Mesh).material as THREE.Material;
-        if (mat instanceof THREE.ShaderMaterial) continue;
-        if ((mat as any).transparent && ((mat as any).opacity ?? 1) < 0.95) continue;
-
-        // Solid hit — place an impact decal.
+      const hits = this.raycaster.intersectObject(this.scene.islands, true);
+      if (hits.length > 0) {
+        const hit = hits[0];
         const normal = hit.face
-          ? hit.face.normal.clone().transformDirection(obj.matrixWorld)
+          ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
           : new THREE.Vector3(0, 1, 0);
+
+        // Persistent scorch mark on the surface.
         const decal = createImpactDecal(hit.point, normal);
         this.scene.scene.add(decal);
         this.effects.push({ type: "decal", obj: decal, life: 10, maxOpacity: 0.85 } as any);
+
+        // Brief impact spark for immediate visual feedback.
+        const spark = createHitParticle(hit.point);
+        this.scene.scene.add(spark);
+        this.effects.push({ type: "spark", obj: spark, life: 0.3 } as any);
 
         // Cap decals so they don't accumulate forever.
         let decalCount = 0;
@@ -542,7 +542,6 @@ export class GameClient {
           const idx = this.effects.indexOf(oldest);
           if (idx >= 0) this.effects.splice(idx, 1);
         }
-        break;
       }
     }
     this.muzzleFlash.intensity *= 0.7;
@@ -713,6 +712,10 @@ export class GameClient {
       if (e.type === "decal" && e.life < 1) {
         const mat = e.obj.material as THREE.MeshBasicMaterial;
         if (mat) mat.opacity = e.maxOpacity * e.life;
+      }
+      // Shrink impact sparks as they fade.
+      if (e.type === "spark") {
+        e.obj.scale.setScalar(Math.max(0, e.life / 0.3) * 1.5);
       }
     }
   }

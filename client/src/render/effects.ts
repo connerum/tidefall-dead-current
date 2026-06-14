@@ -82,6 +82,7 @@ export function createImpactDecal(position: THREE.Vector3, normal: THREE.Vector3
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -4,
+    side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(geometry, material);
   // Nudge along the normal to avoid z-fighting with the surface.

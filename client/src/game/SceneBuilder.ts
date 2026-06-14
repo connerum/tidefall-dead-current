@@ -15,6 +15,7 @@ export class SceneBuilder {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   water: THREE.Mesh;
+  islands: THREE.Group;
   sun: THREE.DirectionalLight;
   private skyMesh: THREE.Mesh;
 
@@ -69,8 +70,8 @@ export class SceneBuilder {
     this.water = createOcean(WORLD_SIZE);
     this.scene.add(this.water);
 
-    const islands = buildIslands(this.scene);
-    this.scene.add(islands);
+    this.islands = buildIslands(this.scene);
+    this.scene.add(this.islands);
 
     // Storm wall: layered translucent cylinders read better than a single sphere
     this.scene.add(this.createStormWall());
