@@ -71,7 +71,10 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
   const colors = new Float32Array(pos.count * 3);
 
   const natural = biome === "tropical";
-  const amp = natural ? 2.6 : biome === "fort" || biome === "wreck" ? 1.6 : 0.8;
+  // Keep relief subtle: the authoritative server treats the ground as a flat
+  // plane (y=0), so large displacement would make the camera clip into hills
+  // or float above valleys. Gentle dunes add life without breaking movement.
+  const amp = natural ? 0.6 : biome === "fort" || biome === "wreck" ? 0.4 : 0.3;
   const c = new THREE.Color();
 
   for (let i = 0; i < pos.count; i++) {
@@ -84,14 +87,14 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
     const n1 = fbm(x * 0.012, z * 0.012, 4, seed, 9999);
     const n2 = fbm(x * 0.05, z * 0.05, 3, seed + 50, 9999);
     let h = (n1 * 0.75 + n2 * 0.25) * amp * relief;
-    if (natural) h += Math.pow(1 - edge, 2) * 0.8; // gentle central mound
+    if (natural) h += Math.pow(1 - edge, 2) * 0.2; // gentle central mound
     pos.setY(i, h);
 
     if (natural) {
       // sand near the shore, grass inland, rock on the peaks
       c.copy(COL_GRASS);
       c.lerp(COL_SAND, THREE.MathUtils.smoothstep(edge, 0.6, 0.95));
-      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 1.8, 3.0) * 0.7);
+      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 0.35, 0.6) * 0.7);
     } else if (biome === "military" || biome === "fort") {
       c.copy(COL_GRASS).lerp(COL_ROCK, n2 * 0.4);
     } else {

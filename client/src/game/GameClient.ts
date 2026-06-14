@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { getWeapon, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -52,6 +52,13 @@ export class GameClient {
   private recoilKick = 0;
   private nearestBoatId?: string;
   private promptText = "";
+  // Client-side prediction: the local player is moved instantly using the same
+  // movement math as the server, then reconciled when authoritative snapshots
+  // arrive. Without this the camera snaps to 20 Hz server positions and feels
+  // choppy.
+  private predicted = new THREE.Vector3();
+  private predictedInit = false;
+  private prevTime = 0;
 
   constructor(net: NetworkClient, notifications: Notifications, hud: HUD) {
     this.net = net;
@@ -206,19 +213,59 @@ export class GameClient {
 
   private loop(): void {
     requestAnimationFrame(() => this.loop());
-    const time = performance.now() / 1000;
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.05, this.prevTime ? now - this.prevTime : 1 / 60);
+    this.prevTime = now;
 
     this.input.update();
     this.updateLocalPlayer();
+    this.applyLocalMovement(dt);
     this.updatePrompt();
-    if (this.localPlayer) this.mapUI.setPlayer(this.localPlayer.position.x, this.localPlayer.position.z, this.input.mouse.x);
+    if (this.localPlayer) this.mapUI.setPlayer(this.predicted.x, this.predicted.z, this.input.mouse.x);
     this.sendInput();
     this.updateEntities();
+    this.smoothEntities(dt);
     this.handleFiring();
-    this.updateEffects(time);
+    this.updateEffects(now);
     this.updateCamera();
     this.hud.update(this.localPlayer, this.input.locked, this.scene.camera, this.promptText, this.anyOverlayOpen());
-    this.scene.render(time);
+    this.scene.render(now);
+  }
+
+  /**
+   * Predict local horizontal movement using the same formula as the server
+   * (PlayerEntity.tick) so the camera responds instantly instead of waiting
+   * for the next snapshot. Vertical position follows the server (ground/jump)
+   * so we don't have to replicate gravity/ground logic.
+   */
+  private applyLocalMovement(dt: number): void {
+    if (!this.localPlayer || !this.predictedInit) return;
+    if (!this.alive || this.anyOverlayOpen()) return;
+    // While driving a boat the server pins our position to the boat; don't
+    // fight it with prediction.
+    if (this.localPlayer.boatId) {
+      this.predicted.set(this.localPlayer.position.x, this.localPlayer.position.y, this.localPlayer.position.z);
+      return;
+    }
+    const yaw = this.input.mouse.x;
+    const forward = (this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0);
+    const right = (this.input.keys.has("KeyD") ? 1 : 0) - (this.input.keys.has("KeyA") ? 1 : 0);
+    const sprinting = this.input.keys.has("ShiftLeft") || this.input.keys.has("ShiftRight");
+    const crouching = this.input.keys.has("ControlLeft") || this.input.keys.has("ControlRight");
+    const speed = crouching ? PLAYER_CROUCH_SPEED : sprinting ? PLAYER_SPRINT_SPEED : PLAYER_WALK_SPEED;
+    const sin = Math.sin(yaw);
+    const cos = Math.cos(yaw);
+    let mx = -sin * forward + cos * right;
+    let mz = -cos * forward - sin * right;
+    const len = Math.hypot(mx, mz);
+    if (len > 0) {
+      mx = (mx / len) * speed * dt;
+      mz = (mz / len) * speed * dt;
+      this.predicted.x += mx;
+      this.predicted.z += mz;
+    }
+    // smooth vertical toward the authoritative ground/jump height
+    this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * Math.min(1, dt * 12);
   }
 
   /** Build the on-screen "[E] ..." prompt from whatever is in front of the player. */
@@ -226,7 +273,7 @@ export class GameClient {
     this.promptText = "";
     this.nearestBoatId = undefined;
     if (!this.remoteData || !this.localPlayer || !this.localPlayer.isAlive || this.anyOverlayOpen()) return;
-    const me = this.localPlayer.position;
+    const me = this.predictedInit ? this.predicted : this.localPlayer.position;
 
     // Nearest loot container within reach.
     let nearestLootDist = 3.2;
@@ -281,6 +328,14 @@ export class GameClient {
       this.alive = true;
       this.deathScreen.hide();
     }
+    // Reconcile prediction with the authoritative server position. On first
+    // snapshot, when (re)spawning, or when we've drifted past a threshold
+    // (server correction), snap directly; otherwise trust the local prediction.
+    const drift = Math.hypot(p.position.x - this.predicted.x, p.position.z - this.predicted.z);
+    if (!this.predictedInit || !p.isAlive || p.boatId || drift > 2.0) {
+      this.predicted.set(p.position.x, p.position.y, p.position.z);
+    }
+    this.predictedInit = true;
   }
 
   private sendInput(): void {
@@ -366,7 +421,8 @@ export class GameClient {
 
   private updateCamera(): void {
     if (!this.localPlayer) return;
-    const p = this.localPlayer.position;
+    // Use the locally predicted position for an instant, jitter-free camera.
+    const p = this.predictedInit ? this.predicted : this.localPlayer.position;
     const eyeY = p.y + 1.6;
     this.scene.camera.position.set(p.x, eyeY, p.z);
     this.scene.camera.rotation.order = "YXZ";
@@ -435,14 +491,42 @@ export class GameClient {
         obj = factory(d);
         this.scene.scene.add(obj);
         map.set(id, obj);
+        // brand-new entity: snap it into place so it doesn't fly in from origin
+        obj.position.set(d.position.x, d.position.y, d.position.z);
+        obj.rotation.y = d.rotation?.yaw ?? d.rotation ?? 0;
       }
-      obj.position.set(d.position.x, d.position.y, d.position.z);
-      obj.rotation.y = d.rotation?.yaw ?? d.rotation ?? 0;
+      // store the authoritative target; the smoothing pass lerps toward it
+      obj.userData.tx = d.position.x;
+      obj.userData.ty = d.position.y;
+      obj.userData.tz = d.position.z;
+      obj.userData.tyaw = d.rotation?.yaw ?? d.rotation ?? obj.rotation.y;
     }
     for (const [id, obj] of map.entries()) {
       if (!seen.has(id)) {
         this.scene.scene.remove(obj);
         map.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Smoothly interpolate every remote entity toward its latest authoritative
+   * target. The server sends 20 Hz snapshots; snapping straight to them looks
+   * choppy, so we lerp each frame for continuous, fluid motion.
+   */
+  private smoothEntities(dt: number): void {
+    // frame-rate-independent lerp factor (~0.3 at 60fps) so entities reach
+    // their 20 Hz targets quickly but without hard snapping.
+    const a = Math.min(1, dt * 16);
+    for (const map of [this.entities.players, this.entities.ais, this.entities.boats, this.entities.loot]) {
+      for (const obj of map.values()) {
+        const tx = obj.userData.tx as number | undefined;
+        if (tx === undefined) continue;
+        obj.position.x += (tx - obj.position.x) * a;
+        obj.position.y += ((obj.userData.ty as number) - obj.position.y) * a;
+        obj.position.z += ((obj.userData.tz as number) - obj.position.z) * a;
+        const tyaw = obj.userData.tyaw as number;
+        obj.rotation.y = lerpAngle(obj.rotation.y, tyaw, a);
       }
     }
   }
@@ -489,4 +573,12 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** Linear interpolation that always takes the shortest way around the circle. */
+function lerpAngle(a: number, b: number, t: number): number {
+  let diff = (b - a) % (Math.PI * 2);
+  if (diff > Math.PI) diff -= Math.PI * 2;
+  else if (diff < -Math.PI) diff += Math.PI * 2;
+  return a + diff * t;
 }
