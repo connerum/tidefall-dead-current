@@ -609,6 +609,54 @@ export function createBarrelTexture(size = 512): HTMLCanvasElement {
   return ctx.canvas;
 }
 
+export function createPalmFrondTexture(size = 512): HTMLCanvasElement {
+  const { canvas, ctx } = makeCanvas(size);
+  // deep green base with a sunlit gradient
+  const grd = ctx.createLinearGradient(0, 0, size, size);
+  grd.addColorStop(0, "#2f5a22");
+  grd.addColorStop(1, "#4d8a32");
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, size, size);
+  const rnd = mulberry32(71);
+  // central rib strokes
+  for (let i = 0; i < 14; i++) {
+    ctx.strokeStyle = "rgba(30,46,20,0.5)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    const x = rnd() * size;
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + (rnd() - 0.5) * 30, size);
+    ctx.stroke();
+  }
+  // leaflet flecks for a feathery look
+  for (let i = 0; i < 2200; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const l = 4 + rnd() * 8;
+    const g = 60 + rnd() * 80;
+    ctx.strokeStyle = `rgba(${(g * 0.4) | 0},${g | 0},${(g * 0.4) | 0},0.5)`;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (rnd() - 0.5) * 3, y + l);
+    ctx.stroke();
+  }
+  // dry yellow tips
+  for (let i = 0; i < 30; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const r = 4 + rnd() * 10;
+    const gg = ctx.createRadialGradient(x, y, 0, x, y, r);
+    gg.addColorStop(0, "rgba(170,150,60,0.4)");
+    gg.addColorStop(1, "rgba(170,150,60,0)");
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return canvas;
+}
+
 // ---------------------------------------------------------------------------
 // Water + foam
 // ---------------------------------------------------------------------------

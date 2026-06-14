@@ -12,6 +12,7 @@ import {
   createScrapPaintTexture,
   createCrateTexture,
   createBarrelTexture,
+  createPalmFrondTexture,
   createFbmNormalTexture,
 } from "./textures.js";
 
@@ -106,6 +107,13 @@ export const materials = {
     normalMap: nmap(314, 6, 6, 1.8),
     roughness: 0.6,
     metalness: 0.55,
+  }),
+  palmFrond: new THREE.MeshStandardMaterial({
+    map: tex(createPalmFrondTexture()),
+    normalMap: nmap(71, 9, 4, 1.4),
+    roughness: 0.8,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
   }),
   water: new THREE.MeshStandardMaterial({
     color: 0x1a6b8a,

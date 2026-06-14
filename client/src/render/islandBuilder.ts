@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { LOCATIONS, type LocationDefinition, SEA_LANES } from "@tidefall/shared";
 import { materials, tilingMaterial } from "./materials.js";
+import { fbm, mulberry32 } from "./textures.js";
 import {
   createPalmTreeModel,
+  createBroadleafTreeModel,
+  createGrassClumpModel,
   createRockCluster,
   createFortWall,
   createBunker,
@@ -51,6 +54,73 @@ function setShadow(o: THREE.Object3D, cast = true, receive = true): void {
   });
 }
 
+const COL_SAND = new THREE.Color(0xd8c89a);
+const COL_GRASS = new THREE.Color(0xffffff);
+const COL_ROCK = new THREE.Color(0x9a9488);
+
+/**
+ * Build the walkable top surface of an island. Vertices are displaced with
+ * layered value noise so the ground has rolling dunes / hills instead of
+ * being a flat disc, and per-vertex colours blend sand (shore) -> grass
+ * (inland) -> rock (peaks) over the base material so biomes read naturally.
+ */
+function buildTerrainTop(radius: number, biome: string, tile: number, seed: number): THREE.Mesh {
+  const geo = new THREE.CircleGeometry(radius, 56, 0, Math.PI * 2);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const colors = new Float32Array(pos.count * 3);
+
+  const natural = biome === "tropical";
+  const amp = natural ? 2.6 : biome === "fort" || biome === "wreck" ? 1.6 : 0.8;
+  const c = new THREE.Color();
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const dist = Math.hypot(x, z) / radius; // 0 centre -> ~1 edge
+    const edge = THREE.MathUtils.clamp(dist, 0, 1);
+    const relief = natural ? 1.0 - edge * 0.85 : 1.0 - edge * 0.6;
+    // multi-scale noise for big dunes + small detail
+    const n1 = fbm(x * 0.012, z * 0.012, 4, seed, 9999);
+    const n2 = fbm(x * 0.05, z * 0.05, 3, seed + 50, 9999);
+    let h = (n1 * 0.75 + n2 * 0.25) * amp * relief;
+    if (natural) h += Math.pow(1 - edge, 2) * 0.8; // gentle central mound
+    pos.setY(i, h);
+
+    if (natural) {
+      // sand near the shore, grass inland, rock on the peaks
+      c.copy(COL_GRASS);
+      c.lerp(COL_SAND, THREE.MathUtils.smoothstep(edge, 0.6, 0.95));
+      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 1.8, 3.0) * 0.7);
+    } else if (biome === "military" || biome === "fort") {
+      c.copy(COL_GRASS).lerp(COL_ROCK, n2 * 0.4);
+    } else {
+      c.copy(COL_GRASS);
+    }
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  const base =
+    biome === "tropical"
+      ? tilingMaterial(materials.grass, tile)
+      : biome === "harbor"
+        ? tilingMaterial(materials.weatheredWood, tile)
+        : biome === "military"
+          ? tilingMaterial(materials.concrete, tile)
+          : tilingMaterial(materials.rock, tile);
+  base.vertexColors = true;
+  base.needsUpdate = true;
+
+  const mesh = new THREE.Mesh(geo, base);
+  setShadow(mesh, true, true);
+  return mesh;
+}
+
 function buildIsland(loc: LocationDefinition): THREE.Group {
   const g = new THREE.Group();
   const radius = loc.radius;
@@ -71,20 +141,8 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
   setShadow(base, true, true);
   g.add(base);
 
-  // Top surface
-  const topMat =
-    loc.biome === "tropical"
-      ? tilingMaterial(materials.grass, surfaceTile)
-      : loc.biome === "harbor"
-        ? tilingMaterial(materials.weatheredWood, surfaceTile)
-        : loc.biome === "military"
-          ? tilingMaterial(materials.concrete, surfaceTile)
-          : tilingMaterial(materials.rock, surfaceTile);
-  const topGeo = new THREE.CircleGeometry(radius, 40);
-  topGeo.rotateX(-Math.PI / 2);
-  const top = new THREE.Mesh(topGeo, topMat);
-  top.position.y = 0;
-  setShadow(top, true, true);
+  // Top surface — displaced + colour-blended terrain for natural relief
+  const top = buildTerrainTop(radius, loc.biome, surfaceTile, loc.position.x * 7 + loc.position.z * 13);
   g.add(top);
 
   // Beach ring for tropical/harbour islands
@@ -99,25 +157,34 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
 
   // Props based on biome
   if (loc.biome === "tropical") {
-    for (let i = 0; i < 14; i++) {
-      const tree = createPalmTreeModel();
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * radius * 0.7;
+    const rng = mulberry32((loc.position.x * 131 + loc.position.z) | 0);
+    const palmCount = 18;
+    for (let i = 0; i < palmCount; i++) {
+      const tree = createPalmTreeModel(rng);
+      const a = (i / palmCount) * Math.PI * 2 + rng() * 0.4;
+      const r = radius * (0.15 + rng() * 0.65);
       tree.position.set(Math.sin(a) * r, 0, Math.cos(a) * r);
-      tree.rotation.y = Math.random() * Math.PI;
+      tree.rotation.y = rng() * Math.PI * 2;
       g.add(tree);
+    }
+    // scattered grass tufts
+    for (let i = 0; i < 60; i++) {
+      const clump = createGrassClumpModel();
+      const a = rng() * Math.PI * 2;
+      const r = rng() * radius * 0.8;
+      clump.position.set(Math.sin(a) * r, 0.05, Math.cos(a) * r);
+      g.add(clump);
     }
     for (let i = 0; i < 6; i++) {
       const hut = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 2.4), materials.weatheredWood);
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * radius * 0.5;
+      const a = rng() * Math.PI * 2;
+      const r = rng() * radius * 0.5;
       hut.position.set(Math.sin(a) * r, 0.8, Math.cos(a) * r);
       setShadow(hut);
       g.add(hut);
-      // thatched roof
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.0, 4), materials.canvas);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.2, 4), materials.canvas);
       roof.position.copy(hut.position);
-      roof.position.y = 2.1;
+      roof.position.y = 2.2;
       roof.rotation.y = Math.PI / 4;
       setShadow(roof);
       g.add(roof);
