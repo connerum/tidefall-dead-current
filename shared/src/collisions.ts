@@ -109,8 +109,7 @@ export function isBoatOnLand(x: number, z: number): boolean {
   for (const loc of Object.values(LOCATIONS)) {
     const dx = x - loc.position.x;
     const dz = z - loc.position.z;
-    const shoreBuffer = loc.riskLevel === "safe" ? 100 : 35;
-    const limit = loc.radius - shoreBuffer;
+    const limit = loc.radius - 15; // small shore allowance for docking
     if (dx * dx + dz * dz < limit * limit) return true;
   }
   return false;
