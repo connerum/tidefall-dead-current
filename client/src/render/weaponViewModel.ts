@@ -39,7 +39,8 @@ export class WeaponViewModel {
   getMuzzlePosition(camera: THREE.Camera): THREE.Vector3 {
     const pos = new THREE.Vector3();
     this.model.getWorldPosition(pos);
-    pos.add(new THREE.Vector3(0, 0, 0.6).applyQuaternion(camera.quaternion));
+    // The barrel points along the camera's forward axis (-Z in camera space).
+    pos.add(new THREE.Vector3(0, 0, -0.6).applyQuaternion(camera.quaternion));
     return pos;
   }
 }

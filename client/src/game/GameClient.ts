@@ -177,6 +177,10 @@ export class GameClient {
     if (action === "boat") {
       if (this.localPlayer?.boatId) {
         this.net.send({ type: "exitBoat" });
+        // Immediately stop driving locally so the boat mesh doesn't keep
+        // following the player while we wait for the server snapshot.
+        this.localPlayer.boatId = undefined;
+        this.drivenBoat.init = false;
       } else if (this.localPlayer?.inSafeZone) {
         // At the Haven: spawn a fresh skiff and board it.
         this.net.send({ type: "spawnBoat" });
@@ -487,11 +491,19 @@ export class GameClient {
 
       // Spawn a visible tracer from the weapon muzzle so the shot feels real.
       const muzzle = this.weaponView.getMuzzlePosition(this.scene.camera);
-      const range = Math.min(w.effectiveRange * 1.5, 120);
-      const end = muzzle.clone().add(dir.clone().multiplyScalar(range));
-      const tracer = createTracer(muzzle, end);
+      const tracer = createTracer();
+      tracer.position.copy(muzzle);
+      tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
       this.scene.scene.add(tracer);
-      this.effects.push({ type: "tracer", obj: tracer, life: 0.08 } as any);
+      this.effects.push({
+        type: "tracer",
+        obj: tracer,
+        life: 0.12,
+        dir: dir.clone(),
+        start: muzzle.clone(),
+        dist: 0,
+        speed: 220,
+      } as any);
     }
     this.muzzleFlash.intensity *= 0.7;
   }
@@ -644,10 +656,18 @@ export class GameClient {
         this.effects.splice(i, 1);
         continue;
       }
-      // Fade tracers out so they vanish smoothly instead of popping off.
-      if (e.type === "tracer" && e.obj.material) {
-        const mat = e.obj.material as THREE.MeshBasicMaterial;
-        mat.opacity = Math.max(0, e.life / 0.08) * 0.9;
+      // Animate moving tracers and fade them out smoothly.
+      if (e.type === "tracer") {
+        e.dist += e.speed * dt;
+        e.obj.position.copy(e.start).add(e.dir.clone().multiplyScalar(e.dist));
+        const alpha = Math.max(0, e.life / 0.12) * 0.95;
+        e.obj.traverse((child: THREE.Object3D) => {
+          const mesh = child as THREE.Mesh;
+          const mat = mesh.material as THREE.MeshBasicMaterial | undefined;
+          if (mat && mat.opacity !== undefined) {
+            mat.opacity = alpha;
+          }
+        });
       }
     }
   }

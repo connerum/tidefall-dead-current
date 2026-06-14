@@ -5,29 +5,41 @@ export function createMuzzleFlash(): THREE.PointLight {
   return light;
 }
 
-export function createTracer(start: THREE.Vector3, end: THREE.Vector3): THREE.Mesh {
-  const dir = new THREE.Vector3().subVectors(end, start);
-  const len = dir.length();
+export function createTracer(): THREE.Group {
+  const group = new THREE.Group();
 
-  // A thin glowing tube is far more visible than a single-pixel GL line.
-  const geometry = new THREE.CylinderGeometry(0.02, 0.02, len, 8, 1, true);
-  // Cylinder defaults to Y-up; rotate to lie along +Z and shift so the pivot sits at the muzzle.
-  geometry.rotateX(Math.PI / 2);
-  geometry.translate(0, 0, len / 2);
-
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xffeebb,
+  // Short, thick glowing streak. Viewed end-on it still reads as a bright dot
+  // because of the head sphere; from the side it clearly shows the flight path.
+  const streakLen = 2.5;
+  const streakGeo = new THREE.CylinderGeometry(0.1, 0.1, streakLen, 10, 1, true);
+  // Cylinder defaults to Y-up; rotate to lie along +Z and shift pivot to the tail.
+  streakGeo.rotateX(Math.PI / 2);
+  streakGeo.translate(0, 0, streakLen / 2);
+  const streakMat = new THREE.MeshBasicMaterial({
+    color: 0xfff0c0,
     transparent: true,
     opacity: 0.9,
-    blending: THREE.AdditiveBlending,
     depthWrite: false,
+    depthTest: false,
     side: THREE.DoubleSide,
   });
+  const streak = new THREE.Mesh(streakGeo, streakMat);
+  group.add(streak);
 
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(start);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.normalize());
-  return mesh;
+  // Bright head that stays visible even when looking straight down the barrel.
+  const headGeo = new THREE.SphereGeometry(0.2, 12, 12);
+  const headMat = new THREE.MeshBasicMaterial({
+    color: 0xffcc44,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.z = streakLen;
+  group.add(head);
+
+  return group;
 }
 
 export function createHitParticle(position: THREE.Vector3): THREE.Mesh {

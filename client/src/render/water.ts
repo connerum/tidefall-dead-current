@@ -18,44 +18,58 @@ const vertexShader = /* glsl */ `
   varying float vWave;
   varying vec3 vNormalW;
 
-  // 4 Gerstner waves. Each: direction, amplitude, wavelength, speed, sharpness.
-  const vec2 D1 = normalize(vec2( 1.0,  0.4));
-  const vec2 D2 = normalize(vec2(-0.6,  1.0));
-  const vec2 D3 = normalize(vec2( 0.3, -1.0));
-  const vec2 D4 = normalize(vec2( 1.0,  1.0));
+  // 6 Gerstner waves spanning a wide range of sizes and speeds for richer,
+  // more varied ocean motion. Parameters must stay in sync with water.ts.
+  const vec2 D1 = normalize(vec2( 1.0,  0.35));
+  const vec2 D2 = normalize(vec2(-0.55, 1.0));
+  const vec2 D3 = normalize(vec2( 0.35,-1.0));
+  const vec2 D4 = normalize(vec2( 1.0,  0.85));
+  const vec2 D5 = normalize(vec2(-0.8, -0.5));
+  const vec2 D6 = normalize(vec2( 0.6,  1.0));
 
   // Returns the full positional displacement (dx, dy, dz) at world xz.
   vec3 gerstner(vec2 p, float t, out float crest){
     crest = 0.0;
     vec3 d = vec3(0.0);
 
-    // Amplitudes are kept modest so wave crests (base -0.5 + sum(A) ~ -0.04)
-    // stay below the island ground plane (y=0) and never flash over land.
-    float w1 = 0.10, A1 = 0.22, Q1 = 0.7, s1 = 0.9;
+    // Amplitudes sum to ~0.43 so crests stay below the island ground plane.
+    float w1 = 0.08, A1 = 0.16, Q1 = 0.70, s1 = 0.65;
     float ph1 = w1 * dot(D1, p) + t * s1;
     d.x += Q1 * A1 * D1.x * cos(ph1);
     d.z += Q1 * A1 * D1.y * cos(ph1);
     d.y += A1 * sin(ph1);
     crest += 0.5 + 0.5 * sin(ph1);
 
-    float w2 = 0.16, A2 = 0.14, Q2 = 0.6, s2 = 1.2;
+    float w2 = 0.14, A2 = 0.12, Q2 = 0.60, s2 = 1.00;
     float ph2 = w2 * dot(D2, p) + t * s2;
     d.x += Q2 * A2 * D2.x * cos(ph2);
     d.z += Q2 * A2 * D2.y * cos(ph2);
     d.y += A2 * sin(ph2);
     crest += 0.5 + 0.5 * sin(ph2);
 
-    float w3 = 0.27, A3 = 0.07, Q3 = 0.5, s3 = 1.6;
+    float w3 = 0.24, A3 = 0.08, Q3 = 0.50, s3 = 1.50;
     float ph3 = w3 * dot(D3, p) + t * s3;
     d.x += Q3 * A3 * D3.x * cos(ph3);
     d.z += Q3 * A3 * D3.y * cos(ph3);
     d.y += A3 * sin(ph3);
 
-    float w4 = 0.40, A4 = 0.03, Q4 = 0.4, s4 = 2.2;
+    float w4 = 0.36, A4 = 0.04, Q4 = 0.40, s4 = 2.10;
     float ph4 = w4 * dot(D4, p) + t * s4;
     d.x += Q4 * A4 * D4.x * cos(ph4);
     d.z += Q4 * A4 * D4.y * cos(ph4);
     d.y += A4 * sin(ph4);
+
+    float w5 = 0.50, A5 = 0.02, Q5 = 0.35, s5 = 2.80;
+    float ph5 = w5 * dot(D5, p) + t * s5;
+    d.x += Q5 * A5 * D5.x * cos(ph5);
+    d.z += Q5 * A5 * D5.y * cos(ph5);
+    d.y += A5 * sin(ph5);
+
+    float w6 = 0.70, A6 = 0.01, Q6 = 0.30, s6 = 3.50;
+    float ph6 = w6 * dot(D6, p) + t * s6;
+    d.x += Q6 * A6 * D6.x * cos(ph6);
+    d.z += Q6 * A6 * D6.y * cos(ph6);
+    d.y += A6 * sin(ph6);
 
     return d;
   }
@@ -195,10 +209,12 @@ export function updateWater(mesh: THREE.Mesh, time: number, camera?: THREE.Camer
 
 // Wave parameters must stay in sync with the vertex shader's gerstner().
 const WAVES = [
-  { D: new THREE.Vector2(1.0, 0.4).normalize(), w: 0.10, A: 0.22, Q: 0.7, s: 0.9 },
-  { D: new THREE.Vector2(-0.6, 1.0).normalize(), w: 0.16, A: 0.14, Q: 0.6, s: 1.2 },
-  { D: new THREE.Vector2(0.3, -1.0).normalize(), w: 0.27, A: 0.07, Q: 0.5, s: 1.6 },
-  { D: new THREE.Vector2(1.0, 1.0).normalize(), w: 0.40, A: 0.03, Q: 0.4, s: 2.2 },
+  { D: new THREE.Vector2(1.0, 0.35).normalize(), w: 0.08, A: 0.16, Q: 0.70, s: 0.65 },
+  { D: new THREE.Vector2(-0.55, 1.0).normalize(), w: 0.14, A: 0.12, Q: 0.60, s: 1.00 },
+  { D: new THREE.Vector2(0.35, -1.0).normalize(), w: 0.24, A: 0.08, Q: 0.50, s: 1.50 },
+  { D: new THREE.Vector2(1.0, 0.85).normalize(), w: 0.36, A: 0.04, Q: 0.40, s: 2.10 },
+  { D: new THREE.Vector2(-0.8, -0.5).normalize(), w: 0.50, A: 0.02, Q: 0.35, s: 2.80 },
+  { D: new THREE.Vector2(0.6, 1.0).normalize(), w: 0.70, A: 0.01, Q: 0.30, s: 3.50 },
 ];
 
 function gerstnerDisplacement(x: number, z: number, t: number): THREE.Vector3 {
