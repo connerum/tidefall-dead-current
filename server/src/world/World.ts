@@ -134,12 +134,22 @@ export class World {
     }
 
     // Boats
-    for (const b of this.boats.values()) {
+    for (const [boatKey, b] of this.boats.entries()) {
       b.tick(dt);
       b.inSafeZone = this.safeZone.isInSafeZone(b.position);
       const dist = distanceVec3(b.position, { x: 0, y: 0, z: 0 });
       if (dist > STORM_WALL_RADIUS) {
         b.applyDamage(BALANCE.storm.damagePerSec * 2 * dt);
+      }
+      // Sync the driver to the boat so they actually ride along.
+      if (b.occupiedBy) {
+        const driver = this.players.get(b.occupiedBy);
+        if (driver) {
+          driver.position.x = b.position.x;
+          driver.position.y = b.position.y;
+          driver.position.z = b.position.z;
+          driver.yaw = b.rotation; // model faces the boat's heading for other viewers
+        }
       }
       if (b.health <= 0) {
         // Drop cargo
@@ -147,7 +157,15 @@ export class World {
           const loot = new LootEntity(b.position, b.cargo, "container", { name: "Boat Cargo" });
           this.loot.set(loot.id, loot);
         }
-        this.boats.delete(b.id);
+        // Kick the driver off so they aren't stranded in a deleted boat.
+        if (b.occupiedBy) {
+          const driver = this.players.get(b.occupiedBy);
+          if (driver) {
+            driver.isDrivingBoat = false;
+            driver.boatId = undefined;
+          }
+        }
+        this.boats.delete(boatKey);
       }
     }
 

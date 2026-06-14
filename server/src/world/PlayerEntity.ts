@@ -275,36 +275,41 @@ export class PlayerEntity extends Entity {
   tick(dt: number): void {
     if (!this.isAlive) return;
 
-    // Movement
-    // The client camera (Three.js, YXZ order) looks down -Z by default, so its
-    // horizontal forward at a given yaw is (-sin(yaw), 0, -cos(yaw)) and its
-    // right vector is (cos(yaw), 0, -sin(yaw)). Movement must match the camera
-    // or WASD feels reversed (forward walking you backward, etc).
-    const speed = this.getMovementSpeed();
-    const forward = { x: -Math.sin(this.yaw), y: 0, z: -Math.cos(this.yaw) };
-    const right = { x: Math.cos(this.yaw), y: 0, z: -Math.sin(this.yaw) };
-    let move = { x: 0, y: 0, z: 0 };
-    move.x += forward.x * this.inputForward + right.x * this.inputRight;
-    move.z += forward.z * this.inputForward + right.z * this.inputRight;
-    if (lengthVec3(move) > 0) {
-      move = normalizeVec3(move);
-      move = scaleVec3(move, speed);
-      this.position.x += move.x * dt;
-      this.position.z += move.z * dt;
-      this.statistics.distanceTraveled += speed * dt;
-    }
+    // While driving a boat the player rides along — their own WASD movement
+    // and gravity are disabled (the boat controls throttle/steering, and the
+    // world syncs the player's position to the boat each tick).
+    if (!this.isDrivingBoat) {
+      // Movement
+      // The client camera (Three.js, YXZ order) looks down -Z by default, so its
+      // horizontal forward at a given yaw is (-sin(yaw), 0, -cos(yaw)) and its
+      // right vector is (cos(yaw), 0, -sin(yaw)). Movement must match the camera
+      // or WASD feels reversed (forward walking you backward, etc).
+      const speed = this.getMovementSpeed();
+      const forward = { x: -Math.sin(this.yaw), y: 0, z: -Math.cos(this.yaw) };
+      const right = { x: Math.cos(this.yaw), y: 0, z: -Math.sin(this.yaw) };
+      let move = { x: 0, y: 0, z: 0 };
+      move.x += forward.x * this.inputForward + right.x * this.inputRight;
+      move.z += forward.z * this.inputForward + right.z * this.inputRight;
+      if (lengthVec3(move) > 0) {
+        move = normalizeVec3(move);
+        move = scaleVec3(move, speed);
+        this.position.x += move.x * dt;
+        this.position.z += move.z * dt;
+        this.statistics.distanceTraveled += speed * dt;
+      }
 
-    // Jump/gravity simplified
-    if (this.jumping && this.onGround) {
-      this.velocity.y = PLAYER_JUMP_VELOCITY;
-      this.onGround = false;
-    }
-    this.velocity.y -= BALANCE.player.gravity * dt;
-    this.position.y += this.velocity.y * dt;
-    if (this.position.y <= 0) {
-      this.position.y = 0;
-      this.velocity.y = 0;
-      this.onGround = true;
+      // Jump/gravity simplified
+      if (this.jumping && this.onGround) {
+        this.velocity.y = PLAYER_JUMP_VELOCITY;
+        this.onGround = false;
+      }
+      this.velocity.y -= BALANCE.player.gravity * dt;
+      this.position.y += this.velocity.y * dt;
+      if (this.position.y <= 0) {
+        this.position.y = 0;
+        this.velocity.y = 0;
+        this.onGround = true;
+      }
     }
 
     // Reload

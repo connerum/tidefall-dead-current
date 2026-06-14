@@ -241,10 +241,13 @@ export class GameClient {
   private applyLocalMovement(dt: number): void {
     if (!this.localPlayer || !this.predictedInit) return;
     if (!this.alive || this.anyOverlayOpen()) return;
-    // While driving a boat the server pins our position to the boat; don't
-    // fight it with prediction.
+    // While driving a boat the server pins our position to the boat. Smoothly
+    // follow the authoritative boat position so the ride isn't jittery.
     if (this.localPlayer.boatId) {
-      this.predicted.set(this.localPlayer.position.x, this.localPlayer.position.y, this.localPlayer.position.z);
+      const a = Math.min(1, dt * 16);
+      this.predicted.x += (this.localPlayer.position.x - this.predicted.x) * a;
+      this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * a;
+      this.predicted.z += (this.localPlayer.position.z - this.predicted.z) * a;
       return;
     }
     const yaw = this.input.mouse.x;
@@ -273,6 +276,10 @@ export class GameClient {
     this.promptText = "";
     this.nearestBoatId = undefined;
     if (!this.remoteData || !this.localPlayer || !this.localPlayer.isAlive || this.anyOverlayOpen()) return;
+    if (this.localPlayer.boatId) {
+      this.promptText = `[V] Disembark   ·   W/S Throttle   ·   A/D Steer   ·   Shift Boost`;
+      return;
+    }
     const me = this.predictedInit ? this.predicted : this.localPlayer.position;
 
     // Nearest loot container within reach.
