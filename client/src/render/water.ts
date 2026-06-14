@@ -29,27 +29,29 @@ const vertexShader = /* glsl */ `
     crest = 0.0;
     vec3 d = vec3(0.0);
 
-    float w1 = 0.10, A1 = 0.55, Q1 = 0.7, s1 = 0.9;
+    // Amplitudes are kept modest so wave crests (base -0.5 + sum(A) ~ -0.04)
+    // stay below the island ground plane (y=0) and never flash over land.
+    float w1 = 0.10, A1 = 0.22, Q1 = 0.7, s1 = 0.9;
     float ph1 = w1 * dot(D1, p) + t * s1;
     d.x += Q1 * A1 * D1.x * cos(ph1);
     d.z += Q1 * A1 * D1.y * cos(ph1);
     d.y += A1 * sin(ph1);
     crest += 0.5 + 0.5 * sin(ph1);
 
-    float w2 = 0.16, A2 = 0.34, Q2 = 0.6, s2 = 1.2;
+    float w2 = 0.16, A2 = 0.14, Q2 = 0.6, s2 = 1.2;
     float ph2 = w2 * dot(D2, p) + t * s2;
     d.x += Q2 * A2 * D2.x * cos(ph2);
     d.z += Q2 * A2 * D2.y * cos(ph2);
     d.y += A2 * sin(ph2);
     crest += 0.5 + 0.5 * sin(ph2);
 
-    float w3 = 0.27, A3 = 0.16, Q3 = 0.5, s3 = 1.6;
+    float w3 = 0.27, A3 = 0.07, Q3 = 0.5, s3 = 1.6;
     float ph3 = w3 * dot(D3, p) + t * s3;
     d.x += Q3 * A3 * D3.x * cos(ph3);
     d.z += Q3 * A3 * D3.y * cos(ph3);
     d.y += A3 * sin(ph3);
 
-    float w4 = 0.40, A4 = 0.07, Q4 = 0.4, s4 = 2.2;
+    float w4 = 0.40, A4 = 0.03, Q4 = 0.4, s4 = 2.2;
     float ph4 = w4 * dot(D4, p) + t * s4;
     d.x += Q4 * A4 * D4.x * cos(ph4);
     d.z += Q4 * A4 * D4.y * cos(ph4);
@@ -121,11 +123,11 @@ const fragmentShader = /* glsl */ `
     n = normalize(n + rip * 0.18);
 
     // base colour from wave height (crests = shallower/brighter)
-    float t = clamp(vWave * 0.6 + 0.55, 0.0, 1.0);
+    float t = clamp(vWave * 0.9 + 0.5, 0.0, 1.0);
     vec3 col = mix(uDeep, uShallow, t);
 
     // subsurface light bleed: warm cyan glow on the tall crests
-    float sss = smoothstep(0.35, 0.9, vWave);
+    float sss = smoothstep(0.18, 0.42, vWave);
     col += vec3(0.10, 0.32, 0.30) * sss * 0.5;
 
     // fresnel rim
@@ -140,7 +142,7 @@ const fragmentShader = /* glsl */ `
 
     // foam: streaked noise on the highest crests
     float foamN = fbm(vWorldPos.xz * 1.5 + uTime * 0.4);
-    float foam = smoothstep(0.72, 1.0, vWave * 0.7 + foamN * 0.5);
+    float foam = smoothstep(0.45, 0.8, vWave * 0.7 + foamN * 0.5);
     col = mix(col, vec3(0.94, 0.97, 1.0), foam * 0.6);
 
     // distance haze toward the horizon
