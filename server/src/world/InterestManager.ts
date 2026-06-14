@@ -2,7 +2,7 @@ import { distanceVec3, type Vec3 } from "@tidefall/shared";
 import type { Entity } from "./Entity.js";
 
 export class InterestManager {
-  private interestRadius = 180;
+  private interestRadius = 300;
 
   getVisibleEntities<T extends Entity>(viewerPos: Vec3, entities: T[]): T[] {
     return entities.filter((e) => distanceVec3(viewerPos, e.position) <= this.interestRadius);

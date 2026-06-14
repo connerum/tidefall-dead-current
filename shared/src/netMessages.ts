@@ -32,6 +32,7 @@ export type ClientMessage =
   | { type: "spawnBoat" }
   | { type: "boardBoat"; boatId: string }
   | { type: "exitBoat" }
+  | { type: "chat"; text: string }
   | { type: "ping"; timestamp: number }
   | { type: "devCommand"; command: string; args?: unknown };
 

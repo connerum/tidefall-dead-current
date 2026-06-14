@@ -626,6 +626,70 @@ body {
   50% { opacity: 1; }
 }
 
+/* ===== Chat ===== */
+.chat {
+  position: absolute;
+  left: 1rem;
+  bottom: 6.5rem;
+  width: 380px;
+  max-width: 42vw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  opacity: 0;
+  transition: opacity 0.4s;
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.chat-log.visible {
+  opacity: 1;
+}
+
+.chat-line {
+  background: rgba(8,12,18,0.6);
+  color: #e8e4dc;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.chat-sender {
+  color: #6fb6ff;
+  font-weight: bold;
+}
+
+.chat-text {
+  color: #e8e4dc;
+}
+
+.chat-input {
+  pointer-events: auto;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  background: rgba(8,12,18,0.8);
+  border: 1px solid #3a4a56;
+  color: #e8e4dc;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  outline: none;
+}
+
+.chat-input:focus {
+  border-color: #44aaff;
+  box-shadow: 0 0 0 2px rgba(68,170,255,0.2);
+}
+
 /* ===== Inventory ===== */
 .capacity {
   display: flex;

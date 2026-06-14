@@ -80,6 +80,7 @@ export class InputController {
       if (e.code === "Digit2") this.onAction?.("slot2");
       if (e.code === "Digit3") this.onAction?.("slot3");
       if (e.code === "KeyR") this.onAction?.("reload");
+      if (e.code === "KeyT") this.onAction?.("chat");
       if (e.code === "Escape") this.onAction?.("escape");
       if (e.code === "Tab") {
         e.preventDefault();

@@ -12,6 +12,7 @@ import type { HUD } from "../ui/hud.js";
 import { InventoryUI } from "../ui/inventory.js";
 import { CraftingUI } from "../ui/crafting.js";
 import { MapUI } from "../ui/map.js";
+import { ChatUI } from "../ui/chat.js";
 import { DeathScreen } from "../ui/deathScreen.js";
 
 export class GameClient {
@@ -25,6 +26,7 @@ export class GameClient {
   private inventoryUI: InventoryUI;
   private craftingUI: CraftingUI;
   private mapUI: MapUI;
+  private chatUI: ChatUI;
   private deathScreen: DeathScreen;
 
   private playerId?: string;
@@ -68,6 +70,7 @@ export class GameClient {
     this.inventoryUI = new InventoryUI(net, () => this.toggleInventory());
     this.craftingUI = new CraftingUI(net, () => this.toggleCrafting());
     this.mapUI = new MapUI();
+    this.chatUI = new ChatUI(net);
     this.deathScreen = new DeathScreen();
 
     this.input.onAction = (action) => this.handleAction(action);
@@ -122,6 +125,9 @@ export class GameClient {
       case "pong":
         this.hud.setPing(Date.now() - msg.timestamp);
         break;
+      case "chat":
+        this.chatUI.addMessage(msg.sender, msg.text);
+        break;
     }
   }
 
@@ -133,10 +139,15 @@ export class GameClient {
       this.inventoryUI.hide();
       this.craftingUI.hide();
       this.mapUI.hide();
+      this.chatUI.close();
       if (document.pointerLockElement) document.exitPointerLock();
       return;
     }
     if (!this.alive) return;
+    if (action === "chat") {
+      this.chatUI.toggle();
+      return;
+    }
     if (action === "interact") {
       this.net.send({ type: "interact" });
       this.audio.playLoot();
@@ -168,7 +179,7 @@ export class GameClient {
   }
 
   private anyOverlayOpen(): boolean {
-    return this.inventoryOpen || this.craftingOpen || this.mapOpen;
+    return this.inventoryOpen || this.craftingOpen || this.mapOpen || this.chatUI.isOpen();
   }
 
   private toggleInventory(): void {
@@ -378,8 +389,14 @@ export class GameClient {
   private updateEntities(): void {
     if (!this.remoteData) return;
 
-    this.syncMap(this.entities.players, this.remoteData.players, (p) => {
+    // Other players only — never render our own body in first-person or the
+    // camera ends up inside it and fills the whole view.
+    const remotePlayers = this.remoteData.players.filter((p) => p.playerId !== this.playerId);
+    this.syncMap(this.entities.players, remotePlayers, (p) => {
       const model = createPlayerModel(0x66aaff);
+      const tag = makeNameplate(p.name);
+      tag.position.y = 2.15;
+      model.add(tag);
       return model;
     });
 
@@ -441,4 +458,35 @@ export class GameClient {
       }
     }
   }
+}
+
+/** Floating player name tag that always faces the camera. */
+function makeNameplate(name: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "rgba(6,10,16,0.62)";
+  roundRectPath(ctx, 6, 12, 244, 40, 8);
+  ctx.fill();
+  ctx.fillStyle = "#cfe3ff";
+  ctx.font = "bold 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(name.slice(0, 16), 128, 33);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2.6, 0.65, 1);
+  return sprite;
+}
+
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }

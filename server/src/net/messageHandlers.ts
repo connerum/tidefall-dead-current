@@ -205,6 +205,14 @@ export function handleClientMessage(
       break;
     }
 
+    case "chat": {
+      const text = String(msg.text ?? "").slice(0, 200).trim();
+      if (text) {
+        world.broadcast({ type: "chat", sender: player.name, text });
+      }
+      break;
+    }
+
     case "devCommand": {
       handleDevCommand(player, (msg as { command: string }).command, world, send);
       break;

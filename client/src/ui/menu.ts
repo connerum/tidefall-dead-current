@@ -35,7 +35,7 @@ export class MenuUI {
           </div>
           <div class="controls-hint">
             <p><strong>WASD</strong> Move · <strong>Mouse</strong> Look · <strong>LMB</strong> Fire · <strong>RMB</strong> Aim</p>
-            <p><strong>Tab</strong> or <strong>F</strong> Inventory · <strong>B</strong> Crafting · <strong>M</strong> Map</p>
+            <p><strong>Tab</strong> or <strong>F</strong> Inventory · <strong>B</strong> Crafting · <strong>M</strong> Map · <strong>T</strong> Chat</p>
             <p><strong>E</strong> Interact / Loot / Bank · <strong>V</strong> Spawn · Board · Exit Boat</p>
             <p><strong>R</strong> Reload · <strong>1-3</strong> Weapons · <strong>G</strong> Grenade · <strong>Shift</strong> Sprint · <strong>Ctrl</strong> Crouch</p>
           </div>

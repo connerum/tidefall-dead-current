@@ -55,6 +55,11 @@ export class World {
     this.players.set(player.playerId, player);
   }
 
+  /** Relay a message to every connected client (used for chat). */
+  broadcast(msg: import("@tidefall/shared").ServerMessage): void {
+    this.onBroadcast(msg);
+  }
+
   removePlayer(playerId: string): void {
     this.players.delete(playerId);
   }
