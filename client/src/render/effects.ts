@@ -74,19 +74,21 @@ function getDecalTexture(): THREE.CanvasTexture {
  * The circle is oriented so its face hugs the given world-space normal.
  */
 export function createImpactDecal(position: THREE.Vector3, normal: THREE.Vector3): THREE.Mesh {
-  const geometry = new THREE.CircleGeometry(0.12, 14);
+  const geometry = new THREE.CircleGeometry(0.18, 14);
   const material = new THREE.MeshBasicMaterial({
     map: getDecalTexture(),
     transparent: true,
     opacity: 0.85,
     depthWrite: false,
+    depthTest: false,
     polygonOffset: true,
     polygonOffsetFactor: -4,
     side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(geometry, material);
   // Nudge along the normal to avoid z-fighting with the surface.
-  mesh.position.copy(position).add(normal.clone().multiplyScalar(0.015));
+  mesh.position.copy(position).add(normal.clone().multiplyScalar(0.02));
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  mesh.renderOrder = 998;
   return mesh;
 }

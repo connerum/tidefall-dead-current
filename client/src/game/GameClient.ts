@@ -520,25 +520,48 @@ export class GameClient {
         speed: 220,
       } as any);
 
-      // Raycast against collision shapes + ground plane to find the impact point.
-      const shapes = getAllCollisionShapes();
-      const hit = raycastEnvironment(
-        origin.x, origin.y, origin.z,
-        dir.x, dir.y, dir.z,
-        shapes,
-        w.effectiveRange * 1.5
-      );
-      if (hit) {
-        const point = new THREE.Vector3(hit.x, hit.y, hit.z);
-        const normal = new THREE.Vector3(hit.nx, hit.ny, hit.nz);
+      // Find the bullet impact point on visible surfaces.
+      // Use THREE.Raycaster against island meshes (accurate visual surface
+      // position), then fall back to collision-shape raycast + ground plane.
+      this.scene.islands.updateMatrixWorld(true);
+      this.raycaster.set(origin, dir);
+      this.raycaster.near = 0.5;
+      this.raycaster.far = w.effectiveRange * 1.5;
+      const meshHits = this.raycaster.intersectObject(this.scene.islands, true);
 
+      let hitPoint: THREE.Vector3 | null = null;
+      let hitNormal: THREE.Vector3 | null = null;
+
+      if (meshHits.length > 0) {
+        const mh = meshHits[0];
+        hitPoint = mh.point.clone();
+        hitNormal = mh.face
+          ? mh.face.normal.clone().transformDirection(mh.object.matrixWorld)
+          : new THREE.Vector3(0, 1, 0);
+      } else {
+        // Fallback: collision shapes + flat ground plane at y=0.
+        const shapes = getAllCollisionShapes();
+        const sh = raycastEnvironment(
+          origin.x, origin.y, origin.z,
+          dir.x, dir.y, dir.z,
+          shapes,
+          w.effectiveRange * 1.5
+        );
+        if (sh) {
+          hitPoint = new THREE.Vector3(sh.x, sh.y, sh.z);
+          hitNormal = new THREE.Vector3(sh.nx, sh.ny, sh.nz);
+        }
+      }
+
+      if (hitPoint && hitNormal) {
         // Persistent scorch mark on the surface.
-        const decal = createImpactDecal(point, normal);
+        const decal = createImpactDecal(hitPoint, hitNormal);
         this.scene.scene.add(decal);
         this.effects.push({ type: "decal", obj: decal, life: 10, maxOpacity: 0.85 } as any);
 
         // Brief impact spark for immediate visual feedback.
-        const spark = createHitParticle(point);
+        const spark = createHitParticle(hitPoint);
+        spark.scale.setScalar(3);
         this.scene.scene.add(spark);
         this.effects.push({ type: "spark", obj: spark, life: 0.3 } as any);
 
@@ -729,7 +752,7 @@ export class GameClient {
       }
       // Shrink impact sparks as they fade.
       if (e.type === "spark") {
-        e.obj.scale.setScalar(Math.max(0, e.life / 0.3) * 1.5);
+        e.obj.scale.setScalar(Math.max(0, e.life / 0.3) * 3);
       }
     }
   }
