@@ -24,7 +24,8 @@ export class App {
   }
 
   private connect(name: string): void {
-    const wsUrl = `ws://${window.location.hostname}:3001/ws`;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
     this.net = new NetworkClient(wsUrl);
     this.game = new GameClient(this.net, this.notifications, this.hud);
 
