@@ -192,3 +192,46 @@ export function updateWater(mesh: THREE.Mesh, time: number, camera?: THREE.Camer
   if (camera) u.uCamPos.value.copy(camera.position);
   u.uStorm.value = storm;
 }
+
+// Wave parameters must stay in sync with the vertex shader's gerstner().
+const WAVES = [
+  { D: new THREE.Vector2(1.0, 0.4).normalize(), w: 0.10, A: 0.22, Q: 0.7, s: 0.9 },
+  { D: new THREE.Vector2(-0.6, 1.0).normalize(), w: 0.16, A: 0.14, Q: 0.6, s: 1.2 },
+  { D: new THREE.Vector2(0.3, -1.0).normalize(), w: 0.27, A: 0.07, Q: 0.5, s: 1.6 },
+  { D: new THREE.Vector2(1.0, 1.0).normalize(), w: 0.40, A: 0.03, Q: 0.4, s: 2.2 },
+];
+
+function gerstnerDisplacement(x: number, z: number, t: number): THREE.Vector3 {
+  const d = new THREE.Vector3();
+  for (const wave of WAVES) {
+    const ph = wave.w * (wave.D.x * x + wave.D.y * z) + t * wave.s;
+    const c = Math.cos(ph);
+    const s = Math.sin(ph);
+    d.x += wave.Q * wave.A * wave.D.x * c;
+    d.z += wave.Q * wave.A * wave.D.y * c;
+    d.y += wave.A * s;
+  }
+  return d;
+}
+
+/**
+ * Sample the same Gerstner waves used by the ocean shader on the CPU so
+ * boats can bob and tilt with the surface.
+ */
+export function getWaveDisplacement(
+  x: number,
+  z: number,
+  time: number
+): { y: number; normal: THREE.Vector3 } {
+  const d = gerstnerDisplacement(x, z, time);
+
+  // Normal via finite differences — matches the shader exactly.
+  const e = 1.5;
+  const ddx = gerstnerDisplacement(x + e, z, time).sub(d);
+  const ddz = gerstnerDisplacement(x, z + e, time).sub(d);
+  const tx = new THREE.Vector3(e + ddx.x, ddx.y, ddx.z);
+  const tz = new THREE.Vector3(ddz.x, ddz.y, e + ddz.z);
+  const normal = new THREE.Vector3().crossVectors(tz, tx).normalize();
+
+  return { y: d.y, normal };
+}

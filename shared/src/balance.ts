@@ -36,7 +36,7 @@ export const BALANCE = {
       maxHealth: 400,
       speed: 10,
       boost: 14,
-      turnSpeed: 2.2,
+      turnSpeed: 1.0,
       cargoSlots: 24,
       despawnMs: 10 * 60 * 1000,
     },

@@ -3,6 +3,7 @@ import { BALANCE, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROU
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
+import { getWaveDisplacement } from "../render/water.js";
 import { WeaponViewModel } from "../render/weaponViewModel.js";
 import { createMuzzleFlash, createTracer, createHitParticle } from "../render/effects.js";
 import { createPlayerModel, createScavengerModel, createDroneModel, createTurretModel, createSkiffModel } from "../render/models.js";
@@ -231,8 +232,8 @@ export class GameClient {
     if (this.localPlayer) this.mapUI.setPlayer(this.predicted.x, this.predicted.z, this.input.mouse.x);
     this.sendInput();
     this.updateEntities();
-    this.smoothEntities(dt);
-    this.applyDrivenBoatMesh();
+    this.smoothEntities(dt, now);
+    this.applyDrivenBoatMesh(now, dt);
     this.handleFiring();
     this.updateEffects(now);
     this.updateCamera();
@@ -305,12 +306,13 @@ export class GameClient {
   }
 
   /** Render the boat we're driving from its predicted state (not the server lerp). */
-  private applyDrivenBoatMesh(): void {
+  private applyDrivenBoatMesh(time: number, dt: number): void {
     if (!this.localPlayer?.boatId || !this.drivenBoat.init) return;
     const mesh = this.entities.boats.get(this.localPlayer.boatId);
     if (mesh) {
       mesh.position.copy(this.drivenBoat.pos);
       mesh.rotation.y = this.drivenBoat.rot;
+      this.applyWaveMotionToBoat(mesh, time, dt);
     }
   }
 
@@ -483,8 +485,11 @@ export class GameClient {
       const kickScale = (this.ads ? 0.6 : 1.0) * (heavy ? 1.6 : 1.0);
       this.recoilKick = Math.min(0.12, this.recoilKick + w.recoilVertical * 6 * kickScale);
 
-      const end = origin.clone().add(dir.multiplyScalar(100));
-      const tracer = createTracer(origin, end);
+      // Spawn a visible tracer from the weapon muzzle so the shot feels real.
+      const muzzle = this.weaponView.getMuzzlePosition(this.scene.camera);
+      const range = Math.min(w.effectiveRange * 1.5, 120);
+      const end = muzzle.clone().add(dir.clone().multiplyScalar(range));
+      const tracer = createTracer(muzzle, end);
       this.scene.scene.add(tracer);
       this.effects.push({ type: "tracer", obj: tracer, life: 0.08 } as any);
     }
@@ -566,6 +571,7 @@ export class GameClient {
         // brand-new entity: snap it into place so it doesn't fly in from origin
         obj.position.set(d.position.x, d.position.y, d.position.z);
         obj.rotation.y = d.rotation?.yaw ?? d.rotation ?? 0;
+        obj.userData.smoothY = d.position.y;
       }
       // store the authoritative target; the smoothing pass lerps toward it
       obj.userData.tx = d.position.x;
@@ -586,7 +592,7 @@ export class GameClient {
    * target. The server sends 20 Hz snapshots; snapping straight to them looks
    * choppy, so we lerp each frame for continuous, fluid motion.
    */
-  private smoothEntities(dt: number): void {
+  private smoothEntities(dt: number, time: number): void {
     // frame-rate-independent lerp factor (~0.3 at 60fps) so entities reach
     // their 20 Hz targets quickly but without hard snapping.
     const a = Math.min(1, dt * 16);
@@ -594,23 +600,54 @@ export class GameClient {
       for (const obj of map.values()) {
         const tx = obj.userData.tx as number | undefined;
         if (tx === undefined) continue;
+        // Smooth the base vertical position independently so boats can add
+        // a visual wave offset on top without fighting the interpolation.
+        const targetY = obj.userData.ty as number;
+        let smoothY = obj.userData.smoothY as number | undefined;
+        if (smoothY === undefined) smoothY = targetY;
+        smoothY += (targetY - smoothY) * a;
+        obj.userData.smoothY = smoothY;
         obj.position.x += (tx - obj.position.x) * a;
-        obj.position.y += ((obj.userData.ty as number) - obj.position.y) * a;
+        obj.position.y = smoothY;
         obj.position.z += ((obj.userData.tz as number) - obj.position.z) * a;
         const tyaw = obj.userData.tyaw as number;
         obj.rotation.y = lerpAngle(obj.rotation.y, tyaw, a);
+        // Boats bob and tilt with the ocean surface.
+        if (map === this.entities.boats) {
+          this.applyWaveMotionToBoat(obj, time, dt);
+        }
       }
     }
   }
 
+  private applyWaveMotionToBoat(mesh: THREE.Group, time: number, dt: number): void {
+    const disp = getWaveDisplacement(mesh.position.x, mesh.position.z, time);
+    mesh.position.y += disp.y;
+
+    // Tilt the hull to match the wave slope under it.
+    const yaw = mesh.rotation.y;
+    const localNormal = disp.normal.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -yaw);
+    const targetPitch = -Math.atan2(localNormal.z, localNormal.y);
+    const targetRoll = Math.atan2(localNormal.x, localNormal.y);
+
+    const a = Math.min(1, dt * 4);
+    mesh.rotation.x = THREE.MathUtils.lerp(mesh.rotation.x, targetPitch, a);
+    mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, targetRoll, a);
+  }
+
   private updateEffects(dt: number): void {
-    // Simple effect cleanup placeholder
     for (let i = this.effects.length - 1; i >= 0; i--) {
       const e = this.effects[i] as any;
       e.life -= dt;
       if (e.life <= 0) {
         this.scene.scene.remove(e.obj);
         this.effects.splice(i, 1);
+        continue;
+      }
+      // Fade tracers out so they vanish smoothly instead of popping off.
+      if (e.type === "tracer" && e.obj.material) {
+        const mat = e.obj.material as THREE.MeshBasicMaterial;
+        mat.opacity = Math.max(0, e.life / 0.08) * 0.9;
       }
     }
   }
