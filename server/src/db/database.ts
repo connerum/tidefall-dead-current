@@ -1,21 +1,51 @@
-import Database from "better-sqlite3";
+import initSqlJs from "sql.js";
+import fs from "fs";
+import path from "path";
 import { SCHEMA_SQL } from "./schema.js";
 import { SERVER_CONFIG } from "../config.js";
 
-let db: Database.Database | null = null;
+// sql.js in-memory DB with file persistence helper
+let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
+let db: InstanceType<Awaited<ReturnType<typeof initSqlJs>>["Database"]>
 
-export function getDatabase(): Database.Database {
-  if (!db) {
-    db = new Database(SERVER_CONFIG.dbPath);
-    db.exec(SCHEMA_SQL);
-    db.pragma("journal_mode = WAL");
+export async function initDatabase(): Promise<void> {
+  if (SQL) return;
+  SQL = await initSqlJs();
+
+  const dbPath = path.resolve(SERVER_CONFIG.dbPath);
+  let data: Buffer | undefined;
+  try {
+    data = fs.readFileSync(dbPath);
+  } catch {
+    data = undefined;
   }
+
+  if (data) {
+    db = new SQL.Database(data);
+  } else {
+    db = new SQL.Database();
+  }
+
+  db.exec(SCHEMA_SQL);
+}
+
+export function getDatabase(): InstanceType<Awaited<ReturnType<typeof initSqlJs>>["Database"]> {
+  if (!db) throw new Error("Database not initialized. Call initDatabase() first.");
   return db;
 }
 
+export function saveDatabase(): void {
+  if (!db) return;
+  const dbPath = path.resolve(SERVER_CONFIG.dbPath);
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  const data = db.export();
+  fs.writeFileSync(dbPath, Buffer.from(data));
+}
+
 export function closeDatabase(): void {
+  saveDatabase();
   if (db) {
     db.close();
-    db = null;
+    db = null as any;
   }
 }

@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { SERVER_CONFIG } from "./config.js";
 import { World } from "./world/World.js";
 import { SocketServer } from "./net/socketServer.js";
-import { getDatabase, closeDatabase } from "./db/database.js";
+import { initDatabase, closeDatabase } from "./db/database.js";
 import { TICK_MS } from "@tidefall/shared";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +31,8 @@ if (process.env.NODE_ENV === "production") {
 const httpServer = createServer(app);
 const world = new World((msg) => socketServer.broadcast(msg as import("@tidefall/shared").ServerMessage));
 const socketServer = new SocketServer(httpServer, world);
+
+await initDatabase();
 
 socketServer.start();
 

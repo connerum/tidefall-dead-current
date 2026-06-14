@@ -11,7 +11,7 @@ Spawn at **The Haven**, a protected harbor hub. Craft weapons, accept contracts,
 - **Client**: TypeScript, Vite, Three.js, WebGL, Pointer Lock API
 - **Server**: Node.js, TypeScript, Express, WebSocket (`ws`), authoritative simulation
 - **Shared**: TypeScript types and data definitions used by both client and server
-- **Persistence**: SQLite (`better-sqlite3`)
+- **Persistence**: SQLite (`sql.js`)
 
 ## Quick Start
 

@@ -1,5 +1,5 @@
 import type { Faction, ItemStack, PlayerProfile } from "@tidefall/shared";
-import { getDatabase } from "./database.js";
+import { prepare } from "./sqliteWrapper.js";
 
 const FACTION_COLUMNS: Record<Faction, string> = {
   freeport: "reputation_freeport",
@@ -9,27 +9,25 @@ const FACTION_COLUMNS: Record<Faction, string> = {
 };
 
 export function loadOrCreateProfile(playerId: string, name: string): PlayerProfile {
-  const db = getDatabase();
-  let row = db.prepare("SELECT * FROM players WHERE playerId = ?").get(playerId) as
+  let row = prepare("SELECT * FROM players WHERE playerId = ?").get(playerId) as
     | Record<string, unknown>
     | undefined;
 
   if (!row) {
     const now = Date.now();
-    db.prepare(
+    prepare(
       `INSERT INTO players (playerId, name, createdAt, lastSeen) VALUES (?, ?, ?, ?)`
     ).run(playerId, name, now, now);
-    row = db.prepare("SELECT * FROM players WHERE playerId = ?").get(playerId) as Record<string, unknown>;
+    row = prepare("SELECT * FROM players WHERE playerId = ?").get(playerId) as Record<string, unknown>;
   } else {
-    db.prepare("UPDATE players SET lastSeen = ?, name = ? WHERE playerId = ?").run(Date.now(), name, playerId);
+    prepare("UPDATE players SET lastSeen = ?, name = ? WHERE playerId = ?").run(Date.now(), name, playerId);
   }
 
   return rowToProfile(row);
 }
 
 export function saveProfile(profile: PlayerProfile): void {
-  const db = getDatabase();
-  db.prepare(
+  prepare(
     `UPDATE players SET
       scrap = ?,
       reputation_freeport = ?,
@@ -64,8 +62,7 @@ export function saveProfile(profile: PlayerProfile): void {
 }
 
 export function loadStash(playerId: string): ItemStack[] {
-  const db = getDatabase();
-  const rows = db.prepare("SELECT itemId, count, data FROM stash WHERE playerId = ?").all(playerId) as Array<{
+  const rows = prepare("SELECT itemId, count, data FROM stash WHERE playerId = ?").all(playerId) as Array<{
     itemId: string;
     count: number;
     data: string | null;
@@ -77,11 +74,10 @@ export function loadStash(playerId: string): ItemStack[] {
 }
 
 export function saveStash(playerId: string, stash: ItemStack[]): void {
-  const db = getDatabase();
-  const insert = db.prepare(
+  const insert = prepare(
     "INSERT OR REPLACE INTO stash (playerId, itemId, count, data) VALUES (?, ?, ?, ?)"
   );
-  const deleteStmt = db.prepare("DELETE FROM stash WHERE playerId = ? AND itemId = ?");
+  const deleteStmt = prepare("DELETE FROM stash WHERE playerId = ? AND itemId = ?");
   const existing = new Set(loadStash(playerId).map((s) => s.itemId));
   for (const item of stash) {
     if (item.count <= 0) {
