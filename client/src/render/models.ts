@@ -406,48 +406,150 @@ export function createCrashedShipPiece(): THREE.Group {
 
 export function createWeaponModel(type: string): THREE.Group {
   const g = new THREE.Group();
-  const m = materials.gunmetal;
+  const metal = materials.gunmetal;
+  const dark = mat(0x14161a, { roughness: 0.5, metalness: 0.5 });
+  const poly = mat(0x22262d, { roughness: 0.6, metalness: 0.15 });
+  const wood = materials.weatheredWood;
+  const glass = mat(0x0d2a44, { roughness: 0.15, metalness: 0.6, emissive: 0x06121e, emissiveIntensity: 0.4 });
+
+  // helper: add a mesh part to the weapon group (barrel points -Z = forward)
+  const P = (
+    geo: THREE.BufferGeometry,
+    m: THREE.Material,
+    x: number,
+    y: number,
+    z: number,
+    rx = 0,
+    ry = 0,
+    rz = 0
+  ): void => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, rz);
+    g.add(mesh);
+  };
+  const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+  const cyl = (r: number, h: number, seg = 10) => new THREE.CylinderGeometry(r, r, h, seg);
+  const torus = (r: number, t: number) => new THREE.TorusGeometry(r, t, 6, 12);
+
   if (type.includes("pistol")) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.35), m);
-    g.add(body);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), m);
-    grip.position.set(0, -0.12, -0.08);
-    grip.rotation.x = 0.25;
-    g.add(grip);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 6), m);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = 0.25;
-    g.add(barrel);
-  } else if (type.includes("rifle") || type.includes("carbine")) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.8), m);
-    g.add(body);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 6), m);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = 0.5;
-    g.add(barrel);
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.1), m);
-    mag.position.set(0, -0.15, 0.05);
-    g.add(mag);
+    // slide / frame
+    P(box(0.08, 0.12, 0.36), metal, 0, 0.02, 0);
+    P(box(0.075, 0.05, 0.34), dark, 0, -0.05, 0.01);
+    // barrel bushing + muzzle
+    P(cyl(0.03, 0.05), metal, 0, 0.02, -0.19, Math.PI / 2);
+    P(cyl(0.022, 0.04), dark, 0, 0.02, -0.22, Math.PI / 2);
+    // grip (angled back)
+    P(box(0.072, 0.19, 0.1), poly, 0, -0.16, 0.1, 0.28);
+    for (let i = 0; i < 5; i++) P(box(0.074, 0.02, 0.1), dark, 0, -0.09 - i * 0.028, 0.12 + i * 0.008);
+    // trigger guard + trigger
+    P(torus(0.05, 0.012), dark, 0, -0.1, -0.01, Math.PI / 2, Math.PI / 2);
+    P(box(0.02, 0.05, 0.015), dark, 0, -0.1, 0.03);
+    // sights
+    P(box(0.012, 0.03, 0.02), metal, 0, 0.09, -0.16);
+    P(box(0.05, 0.022, 0.02), metal, 0, 0.09, 0.12);
+    P(box(0.012, 0.018, 0.02), dark, 0, 0.092, 0.12);
+    // hammer + ejection port
+    P(cyl(0.015, 0.03, 6), dark, 0, 0.05, 0.19, Math.PI / 2);
+    P(box(0.03, 0.025, 0.09), dark, 0.045, 0.04, 0.03);
+    // rust patches (it's a salvaged pistol)
+    P(box(0.05, 0.04, 0.05), mat(0x6a4226, { roughness: 0.9 }), 0, 0.05, -0.05);
   } else if (type.includes("smg")) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.5), m);
-    g.add(body);
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), m);
-    mag.position.set(0, -0.12, 0.1);
-    g.add(mag);
+    P(box(0.085, 0.12, 0.36), metal, 0, 0, 0);
+    P(box(0.06, 0.03, 0.34), dark, 0, 0.075, -0.02);
+    P(cyl(0.017, 0.2), metal, 0, 0.01, -0.24, Math.PI / 2);
+    P(cyl(0.03, 0.05), dark, 0, 0.01, -0.32, Math.PI / 2);
+    P(box(0.06, 0.06, 0.16), dark, 0, 0.01, -0.2);
+    // long stick magazine
+    P(box(0.05, 0.26, 0.08), poly, 0, -0.18, 0.0, 0.12);
+    P(box(0.052, 0.03, 0.085), dark, 0, -0.31, 0.025);
+    // pistol grip
+    P(box(0.062, 0.15, 0.08), poly, 0, -0.13, 0.11, 0.3);
+    // wire stock
+    P(box(0.015, 0.02, 0.16), dark, -0.03, 0.0, 0.22);
+    P(box(0.015, 0.02, 0.16), dark, 0.03, 0.0, 0.22);
+    P(box(0.07, 0.03, 0.02), dark, 0, 0.0, 0.3);
+    P(box(0.07, 0.03, 0.02), dark, 0, -0.05, 0.3);
+    // sights
+    P(box(0.012, 0.025, 0.02), metal, 0, 0.08, -0.16);
+    P(box(0.04, 0.02, 0.02), metal, 0, 0.08, 0.1);
+    P(box(0.03, 0.018, 0.08), dark, 0.045, 0.04, 0.02);
   } else if (type.includes("shotgun")) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.7), m);
-    g.add(body);
-    const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), m);
-    pump.rotation.x = Math.PI / 2;
-    pump.position.set(0, -0.06, 0.3);
-    g.add(pump);
+    P(box(0.09, 0.12, 0.5), metal, 0, 0, 0);
+    // long thick barrel
+    P(cyl(0.03, 0.52), metal, 0, 0.03, -0.42, Math.PI / 2);
+    P(cyl(0.034, 0.05), dark, 0, 0.03, -0.66, Math.PI / 2);
+    // magazine tube under barrel
+    P(cyl(0.022, 0.42, 8), dark, 0, -0.04, -0.36, Math.PI / 2);
+    // wooden pump / forend
+    P(box(0.07, 0.06, 0.2), wood, 0, -0.04, -0.3);
+    P(box(0.072, 0.02, 0.2), mat(0x3a2a18, { roughness: 0.9 }), 0, -0.02, -0.3);
+    // wooden stock
+    P(box(0.08, 0.14, 0.28), wood, 0, -0.03, 0.34);
+    P(box(0.08, 0.05, 0.12), mat(0x3a2a18, { roughness: 0.9 }), 0, 0.05, 0.27); // comb
+    P(box(0.06, 0.1, 0.06), wood, 0, -0.04, 0.5); // butt
+    // grip+guard
+    P(torus(0.05, 0.012), dark, 0, -0.1, 0.05, Math.PI / 2, Math.PI / 2);
+    P(box(0.02, 0.05, 0.015), dark, 0, -0.1, 0.09);
+    // bead sight
+    P(new THREE.SphereGeometry(0.012, 8, 6), metal, 0, 0.1, -0.64);
   } else if (type.includes("marksman") || type.includes("bolt")) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 1.0), m);
-    g.add(body);
-    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 6), m);
-    scope.rotation.x = Math.PI / 2;
-    scope.position.set(0, 0.1, -0.1);
-    g.add(scope);
+    P(box(0.085, 0.12, 0.6), metal, 0, 0, 0);
+    // long barrel
+    P(cyl(0.018, 0.52), metal, 0, 0.01, -0.5, Math.PI / 2);
+    P(cyl(0.026, 0.06), dark, 0, 0.01, -0.7, Math.PI / 2);
+    // scope
+    P(cyl(0.036, 0.28), dark, 0, 0.13, -0.02, Math.PI / 2);
+    P(cyl(0.038, 0.03), metal, 0, 0.13, -0.16, Math.PI / 2);
+    P(cyl(0.038, 0.03), metal, 0, 0.13, 0.12, Math.PI / 2);
+    P(cyl(0.03, 0.008), glass, 0, 0.13, -0.17, Math.PI / 2);
+    P(box(0.03, 0.06, 0.04), dark, 0, 0.085, -0.08);
+    P(box(0.03, 0.06, 0.04), dark, 0, 0.085, 0.06);
+    // stock with cheek rest
+    P(box(0.08, 0.13, 0.26), wood, 0, -0.02, 0.35);
+    P(box(0.05, 0.04, 0.2), mat(0x2a1d10, { roughness: 0.9 }), 0, 0.05, 0.34); // cheek riser
+    P(box(0.07, 0.1, 0.05), wood, 0, -0.03, 0.5); // butt pad
+    // grip + mag + bolt
+    P(box(0.06, 0.15, 0.08), poly, 0, -0.13, 0.16, 0.3);
+    P(box(0.05, 0.1, 0.09), poly, 0, -0.1, -0.02);
+    P(cyl(0.012, 0.1, 6), metal, 0.05, 0.05, 0.05, 0, 0, 0.4); // bolt handle
+    P(torus(0.05, 0.012), dark, 0, -0.1, 0.06, Math.PI / 2, Math.PI / 2);
+    P(box(0.02, 0.05, 0.015), dark, 0, -0.1, 0.1);
+  } else {
+    // default: detailed assault rifle (scrap_rifle / burst carbine)
+    P(box(0.09, 0.13, 0.62), metal, 0, 0, 0);
+    // picatinny top rail
+    P(box(0.04, 0.02, 0.42), dark, 0, 0.08, -0.04);
+    for (let i = 0; i < 7; i++) P(box(0.035, 0.022, 0.02), metal, 0, 0.082, -0.2 + i * 0.06);
+    // barrel + gas system + muzzle brake
+    P(cyl(0.018, 0.42), metal, 0, 0.01, -0.46, Math.PI / 2);
+    P(box(0.04, 0.04, 0.05), dark, 0, 0.03, -0.42); // gas block
+    P(cyl(0.006, 0.12, 6), metal, 0, 0.045, -0.4, Math.PI / 2); // gas tube
+    P(cyl(0.03, 0.08), dark, 0, 0.01, -0.64, Math.PI / 2); // muzzle brake
+    for (let i = 0; i < 3; i++) P(box(0.032, 0.02, 0.012), dark, 0, 0.01, -0.6 - i * 0.025);
+    // handguard
+    P(box(0.07, 0.075, 0.32), poly, 0, 0.01, -0.32);
+    for (let i = 0; i < 4; i++) P(box(0.072, 0.02, 0.04), dark, 0, 0.045, -0.42 + i * 0.08);
+    // magazine (curved)
+    P(box(0.052, 0.24, 0.09), poly, 0, -0.17, 0.02, -0.12);
+    P(box(0.054, 0.04, 0.1), dark, 0, -0.28, 0.085, -0.12);
+    P(box(0.06, 0.05, 0.1), dark, 0, -0.09, 0.02); // mag well
+    // stock
+    P(box(0.07, 0.11, 0.08), poly, 0, 0.0, 0.32);
+    P(box(0.05, 0.1, 0.16), poly, 0, -0.005, 0.4);
+    P(box(0.07, 0.09, 0.03), dark, 0, -0.005, 0.49); // butt plate
+    // grip
+    P(box(0.06, 0.16, 0.08), poly, 0, -0.13, 0.16, 0.32);
+    for (let i = 0; i < 4; i++) P(box(0.062, 0.02, 0.08), dark, 0, -0.07 - i * 0.03, 0.18 + i * 0.01);
+    // sights
+    P(box(0.012, 0.03, 0.02), metal, 0, 0.085, -0.5);
+    P(box(0.05, 0.025, 0.03), metal, 0, 0.085, 0.16);
+    P(box(0.012, 0.02, 0.025), dark, 0, 0.087, 0.16);
+    // charging handle + ejection port + trigger guard
+    P(cyl(0.012, 0.08, 6), metal, 0.05, 0.05, 0.12, 0, 0, 0.4);
+    P(box(0.03, 0.025, 0.09), dark, 0.045, 0.04, -0.05);
+    P(torus(0.05, 0.012), dark, 0, -0.1, 0.06, Math.PI / 2, Math.PI / 2);
+    P(box(0.02, 0.05, 0.015), dark, 0, -0.1, 0.1);
   }
   return g;
 }

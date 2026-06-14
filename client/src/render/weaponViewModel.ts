@@ -12,6 +12,7 @@ export class WeaponViewModel {
   constructor() {
     this.root = new THREE.Group();
     this.model = new THREE.Group();
+    this.model.scale.setScalar(0.8);
     this.root.add(this.model);
     this.model.position.copy(this.hipOffset);
   }
