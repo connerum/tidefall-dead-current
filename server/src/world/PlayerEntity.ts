@@ -2,6 +2,8 @@ import {
   BALANCE,
   clamp,
   distanceVec3,
+  getAllCollisionShapes,
+  checkCollisionCircle,
   getItem,
   getWeapon,
   type ItemStack,
@@ -293,8 +295,22 @@ export class PlayerEntity extends Entity {
       if (lengthVec3(move) > 0) {
         move = normalizeVec3(move);
         move = scaleVec3(move, speed);
+        const oldX = this.position.x;
+        const oldZ = this.position.z;
         this.position.x += move.x * dt;
         this.position.z += move.z * dt;
+        // Structure collision: try full move, then axis-separated slide.
+        const shapes = getAllCollisionShapes();
+        if (checkCollisionCircle(this.position.x, this.position.z, shapes, this.radius)) {
+          if (!checkCollisionCircle(this.position.x, oldZ, shapes, this.radius)) {
+            this.position.z = oldZ;
+          } else if (!checkCollisionCircle(oldX, this.position.z, shapes, this.radius)) {
+            this.position.x = oldX;
+          } else {
+            this.position.x = oldX;
+            this.position.z = oldZ;
+          }
+        }
         this.statistics.distanceTraveled += speed * dt;
       }
 

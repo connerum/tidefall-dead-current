@@ -6,6 +6,7 @@ export * from "./weapons.js";
 export * from "./recipes.js";
 export * from "./lootTables.js";
 export * from "./locations.js";
+export * from "./collisions.js";
 export * from "./aiTypes.js";
 export * from "./contracts.js";
 export * from "./events.js";

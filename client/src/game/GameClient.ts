@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BALANCE, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { BALANCE, getAllCollisionShapes, checkCollisionCircle, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -276,8 +276,22 @@ export class GameClient {
     if (len > 0) {
       mx = (mx / len) * speed * dt;
       mz = (mz / len) * speed * dt;
+      const oldX = this.predicted.x;
+      const oldZ = this.predicted.z;
       this.predicted.x += mx;
       this.predicted.z += mz;
+      // Structure collision: try full move, then axis-separated slide.
+      const shapes = getAllCollisionShapes();
+      if (checkCollisionCircle(this.predicted.x, this.predicted.z, shapes, 0.4)) {
+        if (!checkCollisionCircle(this.predicted.x, oldZ, shapes, 0.4)) {
+          this.predicted.z = oldZ;
+        } else if (!checkCollisionCircle(oldX, this.predicted.z, shapes, 0.4)) {
+          this.predicted.x = oldX;
+        } else {
+          this.predicted.x = oldX;
+          this.predicted.z = oldZ;
+        }
+      }
     }
     // smooth vertical toward the authoritative ground/jump height
     this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * Math.min(1, dt * 12);
@@ -506,25 +520,25 @@ export class GameClient {
         speed: 220,
       } as any);
 
-      // Raycast against island geometry (terrain, walls, structures, props)
-      // to find where the bullet impacts a solid surface.
-      this.raycaster.set(origin, dir);
-      this.raycaster.near = 0.5;
-      this.raycaster.far = w.effectiveRange * 1.5;
-      const hits = this.raycaster.intersectObject(this.scene.islands, true);
-      if (hits.length > 0) {
-        const hit = hits[0];
-        const normal = hit.face
-          ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
-          : new THREE.Vector3(0, 1, 0);
+      // Raycast against collision shapes + ground plane to find the impact point.
+      const shapes = getAllCollisionShapes();
+      const hit = raycastEnvironment(
+        origin.x, origin.y, origin.z,
+        dir.x, dir.y, dir.z,
+        shapes,
+        w.effectiveRange * 1.5
+      );
+      if (hit) {
+        const point = new THREE.Vector3(hit.x, hit.y, hit.z);
+        const normal = new THREE.Vector3(hit.nx, hit.ny, hit.nz);
 
         // Persistent scorch mark on the surface.
-        const decal = createImpactDecal(hit.point, normal);
+        const decal = createImpactDecal(point, normal);
         this.scene.scene.add(decal);
         this.effects.push({ type: "decal", obj: decal, life: 10, maxOpacity: 0.85 } as any);
 
         // Brief impact spark for immediate visual feedback.
-        const spark = createHitParticle(hit.point);
+        const spark = createHitParticle(point);
         this.scene.scene.add(spark);
         this.effects.push({ type: "spark", obj: spark, life: 0.3 } as any);
 

@@ -209,18 +209,19 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
     setShadow(battlement);
     g.add(battlement);
   } else if (loc.biome === "industrial") {
+    const rng = mulberry32((loc.position.x * 131 + loc.position.z) | 0);
     for (let i = 0; i < 10; i++) {
       const crate = createCrateModel();
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * radius * 0.6;
+      const a = rng() * Math.PI * 2;
+      const r = rng() * radius * 0.6;
       crate.position.set(Math.sin(a) * r, 0.4, Math.cos(a) * r);
-      crate.rotation.y = Math.random() * Math.PI;
+      crate.rotation.y = rng() * Math.PI;
       g.add(crate);
     }
     for (let i = 0; i < 8; i++) {
       const barrel = createBarrelModel();
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * radius * 0.6;
+      const a = rng() * Math.PI * 2;
+      const r = rng() * radius * 0.6;
       barrel.position.set(Math.sin(a) * r, 0.45, Math.cos(a) * r);
       g.add(barrel);
     }
@@ -257,13 +258,14 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
       g.add(light);
     }
   } else if (loc.biome === "wreck") {
+    const rng = mulberry32((loc.position.x * 131 + loc.position.z) | 0);
     const wreck = createCrashedShipPiece();
     g.add(wreck);
     for (let i = 0; i < 6; i++) {
       const container = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 6), materials.rustedMetal);
-      container.position.set((Math.random() - 0.5) * radius, 1.2, (Math.random() - 0.5) * radius);
-      container.rotation.y = Math.random() * Math.PI;
-      container.rotation.z = (Math.random() - 0.5) * 0.2;
+      container.position.set((rng() - 0.5) * radius, 1.2, (rng() - 0.5) * radius);
+      container.rotation.y = rng() * Math.PI;
+      container.rotation.z = (rng() - 0.5) * 0.2;
       setShadow(container);
       g.add(container);
     }
