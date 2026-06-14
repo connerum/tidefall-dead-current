@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { BALANCE, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -59,6 +59,13 @@ export class GameClient {
   private predicted = new THREE.Vector3();
   private predictedInit = false;
   private prevTime = 0;
+  // Client-side prediction for the boat the local player is driving, so the
+  // ride is smooth instead of stuttering toward 20 Hz server snapshots.
+  private drivenBoat: { pos: THREE.Vector3; rot: number; init: boolean } = {
+    pos: new THREE.Vector3(),
+    rot: 0,
+    init: false,
+  };
 
   constructor(net: NetworkClient, notifications: Notifications, hud: HUD) {
     this.net = net;
@@ -225,6 +232,7 @@ export class GameClient {
     this.sendInput();
     this.updateEntities();
     this.smoothEntities(dt);
+    this.applyDrivenBoatMesh();
     this.handleFiring();
     this.updateEffects(now);
     this.updateCamera();
@@ -240,16 +248,14 @@ export class GameClient {
    */
   private applyLocalMovement(dt: number): void {
     if (!this.localPlayer || !this.predictedInit) return;
-    if (!this.alive || this.anyOverlayOpen()) return;
-    // While driving a boat the server pins our position to the boat. Smoothly
-    // follow the authoritative boat position so the ride isn't jittery.
+    // While driving a boat, predict the boat locally (constant-velocity) and
+    // ride the camera on it. This avoids the stutter you get from chasing
+    // 20 Hz server positions.
     if (this.localPlayer.boatId) {
-      const a = Math.min(1, dt * 16);
-      this.predicted.x += (this.localPlayer.position.x - this.predicted.x) * a;
-      this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * a;
-      this.predicted.z += (this.localPlayer.position.z - this.predicted.z) * a;
+      if (this.alive) this.predictBoat(dt);
       return;
     }
+    if (!this.alive || this.anyOverlayOpen()) return;
     const yaw = this.input.mouse.x;
     const forward = (this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0);
     const right = (this.input.keys.has("KeyD") ? 1 : 0) - (this.input.keys.has("KeyA") ? 1 : 0);
@@ -269,6 +275,43 @@ export class GameClient {
     }
     // smooth vertical toward the authoritative ground/jump height
     this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * Math.min(1, dt * 12);
+  }
+
+  /**
+   * Predict the driven boat using the exact same kinematics as the server
+   * (BoatEntity.tick) driven by local input, so motion is instant and smooth.
+   * Reconciliation happens in updateLocalPlayer when server snapshots arrive.
+   */
+  private predictBoat(dt: number): void {
+    if (!this.drivenBoat.init) return;
+    const cfg = BALANCE.boat.skiff;
+    const throttle = THREE.MathUtils.clamp(
+      (this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0),
+      -0.5,
+      1
+    );
+    const steer = THREE.MathUtils.clamp(
+      -((this.input.keys.has("KeyD") ? 1 : 0) - (this.input.keys.has("KeyA") ? 1 : 0)),
+      -1,
+      1
+    );
+    const boost = this.input.keys.has("ShiftLeft") || this.input.keys.has("ShiftRight");
+    const speed = (boost ? cfg.boost : cfg.speed) * throttle;
+    const rot = this.drivenBoat.rot;
+    this.drivenBoat.pos.x += Math.sin(rot) * speed * dt;
+    this.drivenBoat.pos.z += Math.cos(rot) * speed * dt;
+    this.drivenBoat.rot += steer * cfg.turnSpeed * dt * (throttle !== 0 ? 1 : 0.4);
+    this.predicted.copy(this.drivenBoat.pos);
+  }
+
+  /** Render the boat we're driving from its predicted state (not the server lerp). */
+  private applyDrivenBoatMesh(): void {
+    if (!this.localPlayer?.boatId || !this.drivenBoat.init) return;
+    const mesh = this.entities.boats.get(this.localPlayer.boatId);
+    if (mesh) {
+      mesh.position.copy(this.drivenBoat.pos);
+      mesh.rotation.y = this.drivenBoat.rot;
+    }
   }
 
   /** Build the on-screen "[E] ..." prompt from whatever is in front of the player. */
@@ -335,11 +378,33 @@ export class GameClient {
       this.alive = true;
       this.deathScreen.hide();
     }
+    if (p.boatId) {
+      // Driving: reconcile the local boat prediction with the server boat.
+      const boat = this.remoteData.boats.find((b) => b.id === p.boatId);
+      if (boat) {
+        const bdrift = Math.hypot(boat.position.x - this.drivenBoat.pos.x, boat.position.z - this.drivenBoat.pos.z);
+        if (!this.drivenBoat.init || bdrift > 4) {
+          this.drivenBoat.pos.set(boat.position.x, boat.position.y, boat.position.z);
+          this.drivenBoat.rot = boat.rotation;
+        } else {
+          // nudge the predicted heading toward the server to stop spin drift
+          this.drivenBoat.rot = lerpAngle(this.drivenBoat.rot, boat.rotation, 0.15);
+        }
+        this.drivenBoat.init = true;
+      }
+      this.predicted.copy(this.drivenBoat.pos);
+      this.predictedInit = true;
+      return;
+    }
+
+    // No longer driving: drop the boat prediction.
+    this.drivenBoat.init = false;
+
     // Reconcile prediction with the authoritative server position. On first
     // snapshot, when (re)spawning, or when we've drifted past a threshold
     // (server correction), snap directly; otherwise trust the local prediction.
     const drift = Math.hypot(p.position.x - this.predicted.x, p.position.z - this.predicted.z);
-    if (!this.predictedInit || !p.isAlive || p.boatId || drift > 2.0) {
+    if (!this.predictedInit || !p.isAlive || drift > 2.0) {
       this.predicted.set(p.position.x, p.position.y, p.position.z);
     }
     this.predictedInit = true;

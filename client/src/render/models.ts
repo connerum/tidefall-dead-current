@@ -207,16 +207,17 @@ export function createSkiffModel(): THREE.Group {
   const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 4.5), materials.weatheredWood);
   hull.position.y = 0.25;
   g.add(hull);
+  // pointed bow facing +Z (the server's forward direction)
   const bow = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.6, 4), materials.weatheredWood);
-  bow.rotation.x = -Math.PI / 2;
+  bow.rotation.x = Math.PI / 2;
   bow.rotation.y = Math.PI / 4;
-  bow.position.set(0, 0.25, -2.8);
+  bow.position.set(0, 0.25, 2.8);
   g.add(bow);
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.8, 6), materials.weatheredWood);
-  mast.position.set(0, 2.0, 0.4);
+  mast.position.set(0, 2.0, -0.4);
   g.add(mast);
   const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.4), materials.canvas);
-  sail.position.set(0, 2.4, 0.4);
+  sail.position.set(0, 2.4, -0.4);
   sail.rotation.y = Math.PI / 2;
   g.add(sail);
   return shadow(g);
