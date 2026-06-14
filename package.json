@@ -1,0 +1,24 @@
+{
+  "name": "tidefall-dead-current",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tidefall: Dead Current - browser-playable multiplayer PvPvE extraction shooter",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build -w shared && concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "test": "npm run test -w server",
+    "lint": "tsc -b"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}

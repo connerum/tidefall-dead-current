@@ -1,0 +1,488 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  color: #e8e4dc;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui-root > * {
+  pointer-events: auto;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Menu */
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10,14,18,0.95), rgba(20,28,36,0.98));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.game-title {
+  font-size: 4rem;
+  margin: 0;
+  letter-spacing: 0.15em;
+  color: #b8c4cc;
+  text-shadow: 0 0 20px rgba(100,180,255,0.4);
+}
+
+.game-subtitle {
+  font-size: 1.5rem;
+  margin: 0.5rem 0 2rem;
+  color: #ff8844;
+  letter-spacing: 0.3em;
+}
+
+.menu-panel {
+  background: rgba(20,24,28,0.9);
+  border: 1px solid #4a5a66;
+  border-radius: 6px;
+  padding: 2rem;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.menu-panel label {
+  font-size: 0.85rem;
+  color: #9aaab4;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.menu-panel input {
+  padding: 0.75rem;
+  background: #0e1216;
+  border: 1px solid #3a4a56;
+  color: #e8e4dc;
+  font-size: 1rem;
+  border-radius: 4px;
+}
+
+.menu-panel button {
+  padding: 0.85rem;
+  background: #2a4a5a;
+  border: none;
+  color: #e8e4dc;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.menu-panel button:hover {
+  background: #3a6a7a;
+}
+
+.controls-hint {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: #7a8a94;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.controls-hint p {
+  margin: 0.25rem 0;
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(232,228,220,0.8);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hud-top-left {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+}
+
+.location {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #e8e4dc;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.contract {
+  font-size: 0.85rem;
+  color: #ccaa66;
+  margin-top: 0.25rem;
+}
+
+.safe-zone {
+  color: #33ccff;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-top: 0.25rem;
+}
+
+.open-waters {
+  color: #ff6644;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-top: 0.25rem;
+}
+
+.hud-bottom-left {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  width: 220px;
+}
+
+.health-bar, .armor-bar {
+  height: 12px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid #3a4a56;
+  margin-bottom: 0.25rem;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #cc3322, #ff6644);
+  transition: width 0.2s;
+}
+
+.armor-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2266aa, #44aaff);
+  transition: width 0.2s;
+}
+
+.stats {
+  font-size: 0.8rem;
+  color: #9aaab4;
+}
+
+.hud-bottom-right {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  text-align: right;
+}
+
+.ammo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e8e4dc;
+}
+
+.compass {
+  font-size: 0.8rem;
+  color: #9aaab4;
+  margin-top: 0.25rem;
+}
+
+.hitmarker {
+  position: absolute;
+  color: #ffcc44;
+  font-weight: bold;
+  font-size: 1.2rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-shadow: 0 0 5px #000;
+}
+
+.debug {
+  position: absolute;
+  bottom: 4rem;
+  left: 1rem;
+  font-size: 0.75rem;
+  color: #aaff66;
+  background: rgba(0,0,0,0.5);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Notifications */
+.notifications {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 50;
+}
+
+.notification {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid;
+  background: rgba(10,14,18,0.92);
+  color: #e8e4dc;
+  font-size: 0.9rem;
+  transition: opacity 0.5s;
+  border-radius: 0 4px 4px 0;
+}
+
+.notification-info { border-color: #44aaff; }
+.notification-success { border-color: #44cc66; }
+.notification-warning { border-color: #ffaa33; }
+.notification-danger { border-color: #ff4444; }
+
+/* Inventory / Crafting / Map overlays */
+.inventory-overlay, .crafting-overlay, .map-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(5,8,10,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.inventory-panel, .crafting-panel, .map-panel {
+  background: rgba(20,24,28,0.96);
+  border: 1px solid #4a5a66;
+  border-radius: 6px;
+  padding: 1.5rem;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.inventory-columns {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.inv-section {
+  min-width: 220px;
+  flex: 1;
+}
+
+.inv-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: #9aaab4;
+  text-transform: uppercase;
+}
+
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.item-card {
+  background: rgba(30,36,42,0.9);
+  border: 1px solid #3a4a56;
+  border-radius: 4px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.item-name {
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.item-count {
+  font-size: 0.8rem;
+  color: #9aaab4;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.item-actions button {
+  flex: 1;
+  padding: 0.25rem;
+  background: #2a4a5a;
+  border: none;
+  color: #e8e4dc;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.item-actions button:hover {
+  background: #3a6a7a;
+}
+
+.recipe-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.recipe-card {
+  background: rgba(30,36,42,0.9);
+  border: 1px solid #3a4a56;
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.recipe-name {
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.recipe-ingredients {
+  font-size: 0.8rem;
+  color: #9aaab4;
+  margin-bottom: 0.5rem;
+}
+
+.recipe-blueprint {
+  font-size: 0.75rem;
+  color: #cc66ff;
+  margin-bottom: 0.5rem;
+}
+
+.recipe-card button {
+  padding: 0.4rem 0.75rem;
+  background: #2a6a3a;
+  border: none;
+  color: #e8e4dc;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.recipe-card button:hover {
+  background: #3a8a4a;
+}
+
+.close-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #5a3a3a;
+  border: none;
+  color: #e8e4dc;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background: #7a4a4a;
+}
+
+/* Map */
+.map-panel {
+  position: relative;
+  background: rgba(16,24,28,0.98);
+  border: 2px solid #5a4a3a;
+}
+
+.map-storm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed #6644aa;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.map-location {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.map-location span {
+  background: rgba(0,0,0,0.6);
+  color: #ccaa66;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 2px;
+}
+
+.map-player {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: #33ccff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Death screen */
+.death-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(80,10,10,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.death-panel {
+  text-align: center;
+  color: #e8e4dc;
+}
+
+.death-panel h1 {
+  font-size: 4rem;
+  margin: 0;
+  color: #ff4444;
+}
+
+.death-panel p {
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+}
