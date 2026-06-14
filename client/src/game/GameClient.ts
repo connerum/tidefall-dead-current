@@ -239,7 +239,7 @@ export class GameClient {
     this.smoothEntities(dt, now);
     this.applyDrivenBoatMesh(now, dt);
     this.handleFiring();
-    this.updateEffects(now);
+    this.updateEffects(dt);
     this.updateCamera();
     this.hud.update(this.localPlayer, this.input.locked, this.scene.camera, this.promptText, this.anyOverlayOpen());
     this.scene.render(now);
