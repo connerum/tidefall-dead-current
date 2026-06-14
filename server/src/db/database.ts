@@ -1,6 +1,7 @@
 import initSqlJs from "sql.js";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { SCHEMA_SQL } from "./schema.js";
 import { SERVER_CONFIG } from "../config.js";
 
@@ -8,10 +9,26 @@ import { SERVER_CONFIG } from "../config.js";
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
 let db: InstanceType<Awaited<ReturnType<typeof initSqlJs>>["Database"]>
 
+function resolveSqlJsWasmPath(): string {
+  try {
+    // Resolve sql.js package root from the actual runtime location
+    const sqlJsMain = require.resolve("sql.js");
+    return path.join(path.dirname(sqlJsMain), "sql-wasm.wasm");
+  } catch {
+    // Fallback for ESM-only environments without require.resolve
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+    return path.join(root, "node_modules/sql.js/dist/sql-wasm.wasm");
+  }
+}
+
 export async function initDatabase(): Promise<void> {
   if (SQL) return;
+  const wasmPath = resolveSqlJsWasmPath();
   SQL = await initSqlJs({
-    locateFile: (file) => path.resolve(`node_modules/sql.js/dist/${file}`),
+    locateFile: (file) => {
+      if (file === "sql-wasm.wasm") return wasmPath;
+      return path.join(path.dirname(wasmPath), file);
+    },
   });
 
   const dbPath = path.resolve(SERVER_CONFIG.dbPath);
