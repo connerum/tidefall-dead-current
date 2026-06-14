@@ -206,7 +206,7 @@ export class GameClient {
     this.handleFiring();
     this.updateEffects(time);
     this.updateCamera();
-    this.hud.update(this.localPlayer, this.input.locked, this.scene.camera, this.promptText);
+    this.hud.update(this.localPlayer, this.input.locked, this.scene.camera, this.promptText, this.anyOverlayOpen());
     this.scene.render(time);
   }
 

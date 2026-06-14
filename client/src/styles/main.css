@@ -31,7 +31,15 @@ body {
   pointer-events: none;
 }
 
-#ui-root > * {
+/* Only interactive overlays opt back in to pointer events. The HUD and
+   notifications are display-only, so they must NOT capture clicks —
+   otherwise they cover the canvas and the click-to-lock-pointer handler on
+   the canvas never fires (player can't look around). */
+.inventory-overlay,
+.crafting-overlay,
+.map-overlay,
+.death-screen,
+.menu-container {
   pointer-events: auto;
 }
 
@@ -587,6 +595,35 @@ body {
   letter-spacing: 0.04em;
   pointer-events: none;
   white-space: nowrap;
+}
+
+.click-to-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #e8e4dc;
+  font-size: 1.6rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+  pointer-events: none;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.click-to-play span {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+  letter-spacing: 0.05em;
+  color: #9aaab4;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 /* ===== Inventory ===== */

@@ -42,13 +42,14 @@ export class HUD {
     this.debug = !this.debug;
   }
 
-  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number }; weapon?: { name: string; ammoInMag: number; magazineSize: number; reserve: number; reloading: boolean } } | null, locked: boolean, camera: THREE.Camera, prompt = ""): void {
-    this.render(player, locked, camera, prompt);
+  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number }; weapon?: { name: string; ammoInMag: number; magazineSize: number; reserve: number; reloading: boolean } } | null, locked: boolean, camera: THREE.Camera, prompt = "", overlayOpen = false): void {
+    this.render(player, locked, camera, prompt, overlayOpen);
   }
 
-  private render(player?: any, locked?: boolean, camera?: THREE.Camera, prompt = ""): void {
+  private render(player?: any, locked?: boolean, camera?: THREE.Camera, prompt = "", overlayOpen = false): void {
     const crosshair = locked ? `<div class="crosshair"></div>` : "";
     const promptEl = prompt && locked ? `<div class="interact-prompt">${prompt}</div>` : "";
+    const clickToPlay = !locked && !overlayOpen && player ? `<div class="click-to-play">CLICK TO PLAY<br><span>WASD move · Mouse look · LMB fire · F inventory · M map</span></div>` : "";
     const safeZone = player?.inSafeZone ? `<div class="safe-zone">SAFE ZONE</div>` : `<div class="open-waters">OPEN WATERS</div>`;
     const location = player?.currentLocationId || "Open Waters";
     const contractText = this.contract ? `Contract: ${this.contract.contractId}` : "No active contract";
@@ -76,6 +77,7 @@ export class HUD {
     this.root.innerHTML = `
       ${crosshair}
       ${promptEl}
+      ${clickToPlay}
       <div class="hud-top-left">
         <div class="location">${location}</div>
         <div class="contract">${contractText}</div>
