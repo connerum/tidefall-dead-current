@@ -22,8 +22,8 @@ export class BoatEntity extends Entity {
     const cfg = BALANCE.boat[type as keyof typeof BALANCE.boat] as typeof BALANCE.boat.skiff;
     this.maxHealth = cfg?.maxHealth ?? 400;
     this.health = this.maxHealth;
-    this.radius = 2.5;
-    this.height = 1.5;
+    this.radius = 5; // larger ship hull
+    this.height = 2.0;
     this.lastUsedAt = Date.now();
   }
 

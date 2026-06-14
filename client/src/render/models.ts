@@ -202,24 +202,161 @@ export function createTurretModel(): THREE.Group {
   return shadow(g);
 }
 
+/**
+ * A proper small ship (skiff-class) big enough for several crew on deck:
+ * shaped wooden hull with a pointed bow, a walkable deck, railing posts and
+ * rope rails, a stern cabin/wheelhouse with windows and a ship's wheel, a
+ * main mast with yard, furled + deployed sail, rigging stays, deck cargo and
+ * a flag. Bow faces +Z (the server's forward direction).
+ */
 export function createSkiffModel(): THREE.Group {
   const g = new THREE.Group();
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 4.5), materials.weatheredWood);
-  hull.position.y = 0.25;
-  g.add(hull);
-  // pointed bow facing +Z (the server's forward direction)
-  const bow = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.6, 4), materials.weatheredWood);
-  bow.rotation.x = Math.PI / 2;
-  bow.rotation.y = Math.PI / 4;
-  bow.position.set(0, 0.25, 2.8);
-  g.add(bow);
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.8, 6), materials.weatheredWood);
-  mast.position.set(0, 2.0, -0.4);
-  g.add(mast);
-  const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.4), materials.canvas);
-  sail.position.set(0, 2.4, -0.4);
-  sail.rotation.y = Math.PI / 2;
+  const hullMat = materials.weatheredWood;
+  const darkWood = mat(0x33240f, { roughness: 0.92 });
+  const metal = materials.rustedMetal;
+  const darkMetal = materials.gunmetal;
+  const sailMat = materials.canvas;
+  const glass = mat(0x122838, { roughness: 0.2, metalness: 0.6, emissive: 0x0a141c, emissiveIntensity: 0.3 });
+  const rope = mat(0x6a5436, { roughness: 0.9 });
+  const accent = mat(0x9a3b2e, { roughness: 0.6 });
+
+  const P = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): void => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, rz);
+    g.add(mesh);
+  };
+  const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+  const cyl = (rt: number, rb: number, h: number, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
+  const sph = (r: number) => new THREE.SphereGeometry(r, 10, 8);
+  // a thin cylinder stretched between two points (rigging / ropes)
+  const line = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, m: THREE.Material, thick = 0.03): void => {
+    const a = new THREE.Vector3(ax, ay, az);
+    const b = new THREE.Vector3(bx, by, bz);
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const len = dir.length();
+    const mesh = new THREE.Mesh(cyl(thick * 0.5, thick * 0.5, len, 5), m);
+    mesh.position.copy(a).add(b).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    g.add(mesh);
+  };
+
+  // ---- Hull ----
+  P(box(5.4, 1.4, 11), hullMat, 0, -0.7, 0);
+  // waterline band (darker)
+  P(box(5.5, 0.28, 11.1), darkWood, 0, -0.25, 0);
+  // keel
+  P(box(0.5, 0.4, 11), darkWood, 0, -1.5, 0);
+  // pointed bow (+Z)
+  P(new THREE.ConeGeometry(2.75, 4, 4), hullMat, 0, -0.7, 7, Math.PI / 2, Math.PI / 4);
+  P(new THREE.ConeGeometry(2.78, 0.6, 4), darkWood, 0, -0.7, 5.2, Math.PI / 2, Math.PI / 4);
+  // stern transom
+  P(box(5.0, 1.3, 0.3), darkWood, 0, -0.7, -5.6);
+
+  // ---- Deck ----
+  P(box(4.8, 0.18, 10), hullMat, 0, 0.06, 0.3);
+  P(box(3.4, 0.18, 3.2), hullMat, 0, 0.06, 5.0); // foredeck
+  // deck plank lines
+  for (let i = -4; i <= 4; i++) P(box(4.6, 0.02, 0.06), darkWood, 0, 0.16, i * 1.1);
+  // hatch
+  P(box(1.0, 0.08, 1.0), darkWood, 0, 0.2, 2.6);
+
+  // ---- Gunwale + railings ----
+  P(box(5.0, 0.35, 0.25), darkWood, 0, 0.3, 5.4); // bow cap
+  P(box(5.2, 0.35, 0.25), darkWood, 0, 0.3, -5.55); // stern cap
+  P(box(0.25, 0.35, 11), darkWood, 2.55, 0.3, 0); // starboard rail
+  P(box(0.25, 0.35, 11), darkWood, -2.55, 0.3, 0); // port rail
+  // railing posts + rope rail
+  for (let i = -4; i <= 4; i++) {
+    const z = i * 1.2;
+    P(cyl(0.04, 0.04, 0.9, 6), darkWood, 2.5, 0.75, z);
+    P(cyl(0.04, 0.04, 0.9, 6), darkWood, -2.5, 0.75, z);
+    if (i < 4) {
+      line(2.5, 1.15, z, 2.5, 1.15, z + 1.2, rope, 0.025);
+      line(-2.5, 1.15, z, -2.5, 1.15, z + 1.2, rope, 0.025);
+    }
+  }
+  // bow railing arc
+  line(2.5, 1.15, 4.8, 1.6, 1.15, 5.6, rope, 0.025);
+  line(-2.5, 1.15, 4.8, -1.6, 1.15, 5.6, rope, 0.025);
+
+  // ---- Stern cabin / wheelhouse ----
+  P(box(3.6, 1.9, 2.8), hullMat, 0, 1.05, -3.6);
+  P(box(4.0, 0.3, 3.2), darkWood, 0, 2.05, -3.6); // roof overhang
+  // windows
+  P(box(0.06, 0.7, 1.8), glass, 1.81, 1.25, -3.6);
+  P(box(0.06, 0.7, 1.8), glass, -1.81, 1.25, -3.6);
+  P(box(2.6, 0.7, 0.06), glass, 0, 1.55, -5.02);
+  // door
+  P(box(1.0, 1.3, 0.08), darkWood, 0, 0.75, -2.21);
+  // cabin frame
+  P(box(3.8, 0.1, 0.15), darkWood, 0, 0.85, -2.2);
+
+  // ---- Ship's wheel (helm) on the cabin roof ----
+  const wheel = new THREE.Group();
+  wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.06, 8, 16), darkMetal));
+  wheel.add(new THREE.Mesh(cyl(0.05, 0.05, 0.5, 8), darkMetal));
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const spoke = new THREE.Mesh(cyl(0.025, 0.025, 0.9, 5), darkMetal);
+    spoke.rotation.z = a;
+    wheel.add(spoke);
+    const knob = new THREE.Mesh(sph(0.06), darkWood);
+    knob.position.set(Math.cos(a) * 0.45, Math.sin(a) * 0.45, 0);
+    wheel.add(knob);
+  }
+  wheel.position.set(0, 2.5, -3.6);
+  wheel.rotation.x = Math.PI / 2;
+  g.add(wheel);
+  // wheel pedestal
+  P(cyl(0.08, 0.1, 0.4, 8), darkWood, 0, 2.25, -3.6);
+
+  // ---- Mast, yard, sail, rigging ----
+  const mastX = 0, mastZ = 1.2;
+  P(cyl(0.2, 0.24, 7), hullMat, mastX, 3.6, mastZ);
+  P(cyl(0.22, 0.22, 0.4, 8), darkWood, mastX, 7.2, mastZ); // mast cap
+  // yard (crossbar) + furled sail
+  P(cyl(0.07, 0.07, 5, 8), darkMetal, mastX, 6.0, mastZ, 0, 0, Math.PI / 2);
+  P(cyl(0.22, 0.22, 4.6, 12), sailMat, mastX, 5.85, mastZ, Math.PI / 2);
+  // deployed square sail (billowing slightly via a curved plane)
+  const sail = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.4, 6, 4), sailMat);
+  sail.position.set(mastX, 4.3, mastZ);
+  // gentle billow
+  const sp = sail.geometry.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < sp.count; i++) {
+    const vx = sp.getX(i) / 2.1;
+    sp.setZ(i, Math.cos(vx * 1.4) * 0.25);
+  }
+  sp.needsUpdate = true;
+  sail.geometry.computeVertexNormals();
   g.add(sail);
+  // rigging stays
+  line(mastX, 7.0, mastZ, 0, 0.6, 6.4, rope); // forestay to bow
+  line(mastX, 7.0, mastZ, 2.4, 0.6, mastZ, rope); // starboard shroud
+  line(mastX, 7.0, mastZ, -2.4, 0.6, mastZ, rope); // port shroud
+  line(mastX, 7.0, mastZ, 0, 2.2, -3.6, rope); // backstay to cabin
+  // flag
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), accent);
+  flag.position.set(mastX + 0.4, 7.3, mastZ);
+  g.add(flag);
+
+  // ---- Deck cargo ----
+  P(box(1.1, 1.1, 1.1), materials.crate, -1.7, 0.72, -0.4);
+  P(box(1.1, 1.1, 1.1), materials.crate, -1.7, 1.82, -0.4);
+  P(cyl(0.42, 0.42, 1.1, 12), materials.barrel, 1.7, 0.72, -0.2);
+  P(cyl(0.42, 0.42, 1.1, 12), materials.barrel, 1.7, 0.72, 1.0);
+  // coils of rope
+  P(new THREE.TorusGeometry(0.3, 0.08, 6, 12), rope, 1.7, 0.62, 2.4);
+
+  // ---- Anchor at the bow ----
+  P(cyl(0.05, 0.05, 1.4, 6), darkMetal, 0, 0.5, 5.6);
+  const anchor = new THREE.Group();
+  anchor.add(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 10), darkMetal));
+  anchor.add(new THREE.Mesh(cyl(0.05, 0.05, 0.7, 6), darkMetal));
+  anchor.add(new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 4), darkMetal));
+  anchor.position.set(0, -0.2, 6.2);
+  g.add(anchor);
+
   return shadow(g);
 }
 

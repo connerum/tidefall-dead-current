@@ -343,7 +343,7 @@ export class GameClient {
     }
 
     // Nearby boat to board.
-    let nearestBoatDist = 6;
+    let nearestBoatDist = 9;
     for (const b of this.remoteData.boats) {
       const dx = b.position.x - me.x;
       const dz = b.position.z - me.z;

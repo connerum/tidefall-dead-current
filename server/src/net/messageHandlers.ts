@@ -191,7 +191,7 @@ export function handleClientMessage(
 
     case "boardBoat": {
       const boat = world.boats.get(msg.boatId);
-      if (boat && distanceVec3(player.position, boat.position) < 6) {
+      if (boat && distanceVec3(player.position, boat.position) < 9) {
         boats.boardBoat(player, boat);
       }
       break;
