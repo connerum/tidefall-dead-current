@@ -137,6 +137,8 @@ export function handleClientMessage(
       const result = crafting.craft(player, msg.recipeId, profile);
       saveProfile(profile);
       send({ type: "craftingResult", success: result.success, message: result.message });
+      // Keep the client's blueprint knowledge in sync after a successful craft.
+      if (result.success) send({ type: "profile", data: profile });
       sendInventory(player, world, send);
       break;
     }

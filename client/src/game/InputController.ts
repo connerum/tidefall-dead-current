@@ -65,6 +65,11 @@ export class InputController {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       this.keys.add(e.code);
+      // Action keys must only fire on the initial press. Without this, OS
+      // key auto-repeat fires keydown many times per press, which toggles
+      // panels open->closed (so F/B/M appear to "do nothing") and makes V
+      // spawn a boat then immediately exit it.
+      if (e.repeat) return;
       if (e.code === "KeyE") this.onAction?.("interact");
       if (e.code === "KeyF") this.onAction?.("inventory");
       if (e.code === "KeyB") this.onAction?.("crafting");
@@ -76,6 +81,10 @@ export class InputController {
       if (e.code === "Digit3") this.onAction?.("slot3");
       if (e.code === "KeyR") this.onAction?.("reload");
       if (e.code === "Escape") this.onAction?.("escape");
+      if (e.code === "Tab") {
+        e.preventDefault();
+        this.onAction?.("inventory");
+      }
       if (e.code === "F1") {
         e.preventDefault();
         this.onAction?.("debug");

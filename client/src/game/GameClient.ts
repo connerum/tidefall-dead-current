@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { getWeapon, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { getWeapon, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -48,6 +48,8 @@ export class GameClient {
   private currentLootId?: string;
   private prevFire = false;
   private recoilKick = 0;
+  private nearestBoatId?: string;
+  private promptText = "";
 
   constructor(net: NetworkClient, notifications: Notifications, hud: HUD) {
     this.net = net;
@@ -85,13 +87,17 @@ export class GameClient {
         break;
       case "profile":
         this.hud.setProfile(msg.data);
+        this.craftingUI.setUnlockedBlueprints(((msg.data as { unlockedBlueprints?: string[] })?.unlockedBlueprints) ?? []);
         break;
-      case "inventory":
-        this.inventoryUI.setInventory(msg.data as { backpack: unknown[]; stash: unknown[]; equipped: unknown; slot: string });
+      case "inventory": {
+        const inv = msg.data as { backpack: ItemStack[]; stash: ItemStack[]; equipped: { primary?: string; secondary?: string; armor?: string }; slot: string };
+        this.inventoryUI.setInventory(inv);
+        this.craftingUI.setBackpack(inv.backpack);
         break;
+      }
       case "lootOpen":
         this.currentLootId = (msg as { lootId: string }).lootId;
-        this.inventoryUI.setLoot((msg as { data: unknown }).data as { id: string; items: unknown[]; name?: string });
+        this.inventoryUI.setLoot((msg as { data: unknown }).data as { id?: string; items: ItemStack[]; name?: string });
         if (!this.inventoryOpen) this.toggleInventory();
         break;
       case "hitmarker":
@@ -145,8 +151,13 @@ export class GameClient {
     if (action === "boat") {
       if (this.localPlayer?.boatId) {
         this.net.send({ type: "exitBoat" });
-      } else {
+      } else if (this.localPlayer?.inSafeZone) {
+        // At the Haven: spawn a fresh skiff and board it.
         this.net.send({ type: "spawnBoat" });
+      } else if (this.nearestBoatId) {
+        this.net.send({ type: "boardBoat", boatId: this.nearestBoatId });
+      } else {
+        this.notifications.show("No boat nearby. Spawn one at The Haven.", "warning");
       }
     }
     if (action === "slot1") this.net.send({ type: "input", data: { slot: 1 } });
@@ -156,19 +167,27 @@ export class GameClient {
     if (action === "debug") this.hud.toggleDebug();
   }
 
+  private anyOverlayOpen(): boolean {
+    return this.inventoryOpen || this.craftingOpen || this.mapOpen;
+  }
+
   private toggleInventory(): void {
+    // Tab also opens inventory; ignore if another overlay is already open.
+    if (this.craftingOpen || this.mapOpen) return;
     this.inventoryOpen = !this.inventoryOpen;
     this.inventoryUI.toggle();
     if (this.inventoryOpen) document.exitPointerLock();
   }
 
   private toggleCrafting(): void {
+    if (this.inventoryOpen || this.mapOpen) return;
     this.craftingOpen = !this.craftingOpen;
     this.craftingUI.toggle();
     if (this.craftingOpen) document.exitPointerLock();
   }
 
   private toggleMap(): void {
+    if (this.inventoryOpen || this.craftingOpen) return;
     this.mapOpen = !this.mapOpen;
     this.mapUI.toggle();
     if (this.mapOpen) document.exitPointerLock();
@@ -180,13 +199,61 @@ export class GameClient {
 
     this.input.update();
     this.updateLocalPlayer();
+    this.updatePrompt();
+    if (this.localPlayer) this.mapUI.setPlayer(this.localPlayer.position.x, this.localPlayer.position.z, this.input.mouse.x);
     this.sendInput();
     this.updateEntities();
     this.handleFiring();
     this.updateEffects(time);
     this.updateCamera();
-    this.hud.update(this.localPlayer, this.input.locked, this.scene.camera);
+    this.hud.update(this.localPlayer, this.input.locked, this.scene.camera, this.promptText);
     this.scene.render(time);
+  }
+
+  /** Build the on-screen "[E] ..." prompt from whatever is in front of the player. */
+  private updatePrompt(): void {
+    this.promptText = "";
+    this.nearestBoatId = undefined;
+    if (!this.remoteData || !this.localPlayer || !this.localPlayer.isAlive || this.anyOverlayOpen()) return;
+    const me = this.localPlayer.position;
+
+    // Nearest loot container within reach.
+    let nearestLootDist = 3.2;
+    let nearestLootName: string | null = null;
+    for (const l of this.remoteData.loot) {
+      const dx = l.position.x - me.x;
+      const dz = l.position.z - me.z;
+      const d = Math.hypot(dx, dz);
+      if (d < nearestLootDist) {
+        nearestLootDist = d;
+        nearestLootName = l.name || (l.type === "backpack" ? "Backpack" : "Loot");
+      }
+    }
+    if (nearestLootName) {
+      this.promptText = `[E] Search ${nearestLootName}`;
+      return;
+    }
+
+    // Nearby boat to board.
+    let nearestBoatDist = 6;
+    for (const b of this.remoteData.boats) {
+      const dx = b.position.x - me.x;
+      const dz = b.position.z - me.z;
+      const d = Math.hypot(dx, dz);
+      if (d < nearestBoatDist && !b.occupiedBy) {
+        nearestBoatDist = d;
+        this.nearestBoatId = b.id;
+      }
+    }
+    if (this.nearestBoatId) {
+      this.promptText = `[V] Board Skiff`;
+      return;
+    }
+
+    // Haven banking / crafting prompts.
+    if (this.localPlayer.inSafeZone && this.localPlayer.currentLocationId === "haven") {
+      this.promptText = `[E] Bank & Extract · [B] Craft`;
+    }
   }
 
   private updateLocalPlayer(): void {
@@ -207,8 +274,10 @@ export class GameClient {
 
   private sendInput(): void {
     if (!this.playerId) return;
-    const forward = (this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0);
-    const right = (this.input.keys.has("KeyD") ? 1 : 0) - (this.input.keys.has("KeyA") ? 1 : 0);
+    // When a menu is open, freeze the player so they can't walk blind.
+    const blocked = this.anyOverlayOpen();
+    const forward = blocked ? 0 : (this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0);
+    const right = blocked ? 0 : (this.input.keys.has("KeyD") ? 1 : 0) - (this.input.keys.has("KeyA") ? 1 : 0);
     this.net.send({
       type: "input",
       data: {
@@ -216,10 +285,10 @@ export class GameClient {
         right,
         yaw: this.input.mouse.x,
         pitch: this.input.mouse.y,
-        sprint: this.input.keys.has("ShiftLeft") || this.input.keys.has("ShiftRight"),
-        crouch: this.input.keys.has("ControlLeft") || this.input.keys.has("ControlRight"),
-        jump: this.input.keys.has("Space"),
-        fire: this.input.firePressed,
+        sprint: !blocked && (this.input.keys.has("ShiftLeft") || this.input.keys.has("ShiftRight")),
+        crouch: !blocked && (this.input.keys.has("ControlLeft") || this.input.keys.has("ControlRight")),
+        jump: !blocked && this.input.keys.has("Space"),
+        fire: !blocked && this.input.firePressed,
         ads: this.ads,
         reload: false,
         interact: false,

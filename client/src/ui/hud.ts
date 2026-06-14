@@ -42,12 +42,13 @@ export class HUD {
     this.debug = !this.debug;
   }
 
-  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number }; weapon?: { name: string; ammoInMag: number; magazineSize: number; reserve: number; reloading: boolean } } | null, locked: boolean, camera: THREE.Camera): void {
-    this.render(player, locked, camera);
+  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number }; weapon?: { name: string; ammoInMag: number; magazineSize: number; reserve: number; reloading: boolean } } | null, locked: boolean, camera: THREE.Camera, prompt = ""): void {
+    this.render(player, locked, camera, prompt);
   }
 
-  private render(player?: any, locked?: boolean, camera?: THREE.Camera): void {
+  private render(player?: any, locked?: boolean, camera?: THREE.Camera, prompt = ""): void {
     const crosshair = locked ? `<div class="crosshair"></div>` : "";
+    const promptEl = prompt && locked ? `<div class="interact-prompt">${prompt}</div>` : "";
     const safeZone = player?.inSafeZone ? `<div class="safe-zone">SAFE ZONE</div>` : `<div class="open-waters">OPEN WATERS</div>`;
     const location = player?.currentLocationId || "Open Waters";
     const contractText = this.contract ? `Contract: ${this.contract.contractId}` : "No active contract";
@@ -74,6 +75,7 @@ export class HUD {
 
     this.root.innerHTML = `
       ${crosshair}
+      ${promptEl}
       <div class="hud-top-left">
         <div class="location">${location}</div>
         <div class="contract">${contractText}</div>

@@ -541,3 +541,386 @@ body {
   font-size: 1.2rem;
   margin: 0.5rem 0;
 }
+
+/* ===== Shared panel chrome ===== */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: 0.05em;
+  color: #e8e4dc;
+}
+
+.muted {
+  color: #6a7a84;
+  font-weight: normal;
+  font-size: 0.8rem;
+}
+
+.empty-note {
+  color: #5a6a74;
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+}
+
+/* ===== Interaction prompt ===== */
+.interact-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  background: rgba(8,12,18,0.8);
+  border: 1px solid #3a5a6a;
+  color: #e8e4dc;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ===== Inventory ===== */
+.capacity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #9aaab4;
+}
+
+.capacity-bar {
+  width: 120px;
+  height: 8px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid #3a4a56;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.capacity-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #44aaff, #5fd35f);
+  transition: width 0.2s;
+}
+
+.equip-slots {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.equip-slot {
+  flex: 1;
+  min-width: 180px;
+  background: rgba(30,40,48,0.9);
+  border-left: 4px solid var(--rarity, #9aa6a0);
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.equip-slot.empty {
+  border-left-color: #3a4a56;
+}
+
+.equip-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #7a8a94;
+}
+
+.equip-name {
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.equip-stat {
+  font-size: 0.75rem;
+  color: #9aaab4;
+}
+
+.item-card {
+  background: rgba(30,36,42,0.9);
+  border: 1px solid #3a4a56;
+  border-left: 4px solid var(--rarity, #9aa6a0);
+  border-radius: 4px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.item-card.rarity-uncommon { --rarity: #5fd35f; }
+.item-card.rarity-rare { --rarity: #3f8fff; }
+.item-card.rarity-epic { --rarity: #b15cff; }
+
+.item-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--rarity, #3a4a56);
+  color: var(--rarity, #9aa6a0);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-info .item-name {
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: #e8e4dc;
+}
+
+.item-info .item-count {
+  font-size: 0.75rem;
+  color: #9aaab4;
+}
+
+.item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.item-actions button {
+  padding: 0.2rem 0.5rem;
+  background: #2a4a5a;
+  border: none;
+  color: #e8e4dc;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.item-actions button:hover {
+  background: #3a6a7a;
+}
+
+/* ===== Crafting ===== */
+.craft-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.craft-tab {
+  padding: 0.4rem 0.9rem;
+  background: rgba(30,36,42,0.9);
+  border: 1px solid #3a4a56;
+  color: #9aaab4;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.craft-tab.active {
+  background: #2a4a5a;
+  color: #e8e4dc;
+  border-color: #44aaff;
+}
+
+.recipe-card {
+  background: rgba(30,36,42,0.9);
+  border: 1px solid #3a4a56;
+  border-left: 4px solid var(--rarity, #9aa6a0);
+  border-radius: 4px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.recipe-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.recipe-name {
+  font-weight: bold;
+}
+
+.recipe-stats {
+  font-size: 0.72rem;
+  color: #9aaab4;
+}
+
+.recipe-output {
+  font-size: 0.75rem;
+  color: #7a8a94;
+}
+
+.recipe-blueprint {
+  font-size: 0.75rem;
+}
+
+.recipe-blueprint.locked {
+  color: #ff6644;
+}
+
+.recipe-blueprint.owned {
+  color: #5fd35f;
+}
+
+.recipe-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.recipe-ingredients .ing {
+  background: rgba(0,0,0,0.35);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+}
+
+.recipe-ingredients .ing.ok {
+  color: #c8d4dc;
+}
+
+.recipe-ingredients .ing.ok b {
+  color: #5fd35f;
+}
+
+.recipe-ingredients .ing.missing {
+  color: #ff8866;
+}
+
+.recipe-ingredients .ing.missing b {
+  color: #ff4444;
+}
+
+.craft-btn {
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.75rem;
+  background: #2a6a3a;
+  border: none;
+  color: #e8e4dc;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.craft-btn:hover {
+  background: #3a8a4a;
+}
+
+.craft-btn.disabled {
+  background: #3a3a3a;
+  color: #6a6a6a;
+  cursor: not-allowed;
+}
+
+/* ===== Map ===== */
+.map-canvas {
+  position: relative;
+  background:
+    radial-gradient(circle at center, rgba(20,60,80,0.4), rgba(8,16,24,0.6)),
+    repeating-linear-gradient(0deg, rgba(120,180,210,0.05) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(120,180,210,0.05) 0 1px, transparent 1px 40px);
+  border: 1px solid #3a5a6a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.map-storm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed #6644aa;
+  border-radius: 50%;
+  box-shadow: 0 0 60px rgba(102,68,170,0.3) inset;
+}
+
+.map-lane {
+  position: absolute;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(159,224,255,0.6), rgba(159,224,255,0.15));
+  transform-origin: left center;
+}
+
+.map-location {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.map-loc-zone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.map-location span {
+  position: relative;
+  display: inline-block;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid;
+  color: #ccaa66;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+}
+
+.map-player {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.map-player-arrow {
+  width: 14px;
+  height: 14px;
+  background: #33ccff;
+  clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
+  filter: drop-shadow(0 0 4px rgba(51,204,255,0.8));
+}
+
+.map-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #9aaab4;
+}
+
+.map-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
