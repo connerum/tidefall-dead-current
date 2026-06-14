@@ -46,6 +46,10 @@ To test multiplayer, open a second browser tab (or a second browser) to the same
 | Esc | Release pointer / close menus |
 | F1 | Toggle debug overlay |
 
+**Mouse settings** — adjust mouse sensitivity and toggle inverted vertical look from the main menu before connecting. These preferences are saved in your browser and persist between sessions.
+
+**Dev proxy** — when running `npm run dev`, the Vite client (port 5173) automatically proxies `/ws` and `/api` to the server (port 3001), so multiplayer works out of the box with no extra configuration.
+
 ## Architecture
 
 ```

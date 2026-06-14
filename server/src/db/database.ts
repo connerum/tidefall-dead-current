@@ -1,6 +1,7 @@
 import initSqlJs from "sql.js";
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { SCHEMA_SQL } from "./schema.js";
 import { SERVER_CONFIG } from "../config.js";
@@ -9,16 +10,36 @@ import { SERVER_CONFIG } from "../config.js";
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
 let db: InstanceType<Awaited<ReturnType<typeof initSqlJs>>["Database"]>
 
+/**
+ * Robustly locate the sql.js wasm binary regardless of whether the server is
+ * run via tsx (source) or compiled node (dist). createRequire resolves the
+ * package from this module's URL, honouring npm workspace hoisting.
+ */
 function resolveSqlJsWasmPath(): string {
+  const require = createRequire(import.meta.url);
+  const candidates: string[] = [];
   try {
-    // Resolve sql.js package root from the actual runtime location
     const sqlJsMain = require.resolve("sql.js");
-    return path.join(path.dirname(sqlJsMain), "sql-wasm.wasm");
+    candidates.push(path.join(path.dirname(sqlJsMain), "sql-wasm.wasm"));
   } catch {
-    // Fallback for ESM-only environments without require.resolve
-    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-    return path.join(root, "node_modules/sql.js/dist/sql-wasm.wasm");
+    /* ignore */
   }
+  try {
+    candidates.push(require.resolve("sql.js/dist/sql-wasm.wasm"));
+  } catch {
+    /* ignore */
+  }
+  // Walk up from this file looking for node_modules/sql.js (last resort).
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 6; i++) {
+    candidates.push(path.join(dir, "node_modules/sql.js/dist/sql-wasm.wasm"));
+    dir = path.dirname(dir);
+  }
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  // If we somehow can't find it, let sql.js try its default and surface the error.
+  return "sql-wasm.wasm";
 }
 
 export async function initDatabase(): Promise<void> {

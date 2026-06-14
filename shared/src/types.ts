@@ -226,6 +226,15 @@ export interface SerializedPlayer {
   inSafeZone: boolean;
   equippedSlot: "primary" | "secondary" | "throwable";
   boatId?: string;
+  /** Only populated for the local player's own snapshot. */
+  weapon?: {
+    id: string;
+    name: string;
+    ammoInMag: number;
+    magazineSize: number;
+    reserve: number;
+    reloading: boolean;
+  };
 }
 
 export interface SerializedBoat {

@@ -109,6 +109,38 @@ body {
   background: #3a6a7a;
 }
 
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.setting-label {
+  font-size: 0.75rem;
+  color: #9aaab4;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex: 1;
+}
+
+.setting-label span {
+  color: #e8e4dc;
+}
+
+.settings-row input[type="range"] {
+  flex: 1;
+  accent-color: #44aaff;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #44aaff;
+  cursor: pointer;
+}
+
 .controls-hint {
   margin-top: 1rem;
   font-size: 0.75rem;
@@ -219,6 +251,29 @@ body {
   font-size: 1.5rem;
   font-weight: bold;
   color: #e8e4dc;
+}
+
+.weapon-name {
+  font-size: 0.8rem;
+  color: #ccaa66;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ammo .reloading {
+  color: #ffaa33;
+  letter-spacing: 0.1em;
+}
+
+.ammo .ammo-sep {
+  color: #6a7a84;
+  font-weight: normal;
+}
+
+.ammo .ammo-reserve {
+  font-size: 0.9rem;
+  color: #9aaab4;
+  font-weight: normal;
 }
 
 .compass {

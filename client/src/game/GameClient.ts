@@ -46,6 +46,8 @@ export class GameClient {
   private craftingOpen = false;
   private mapOpen = false;
   private currentLootId?: string;
+  private prevFire = false;
+  private recoilKick = 0;
 
   constructor(net: NetworkClient, notifications: Notifications, hud: HUD) {
     this.net = net;
@@ -232,12 +234,24 @@ export class GameClient {
   private handleFiring(): void {
     if (!this.alive) return;
     this.ads = this.input.adsPressed;
-    const weaponId = this.localPlayer?.equippedSlot === "primary" ? "rust_pistol" : undefined; // Will be derived from snapshot later
-    const w = weaponId ? getWeapon(weaponId) : undefined;
-    if (!w) return;
+    const wpn = this.localPlayer?.weapon;
+    const w = wpn ? getWeapon(wpn.id) : undefined;
+    if (w) this.weaponView.setWeapon(w.id);
+    if (!w || !wpn) {
+      this.prevFire = this.input.firePressed;
+      return;
+    }
+
     const minInterval = 60000 / w.rpm;
-    if (this.input.firePressed && performance.now() - this.lastFireTime > minInterval) {
-      this.lastFireTime = performance.now();
+    const now = performance.now();
+    // Semi/burst weapons only fire on the initial press; autos can hold.
+    const isSemi = w.fireMode !== "auto";
+    const wantFire = isSemi ? this.input.firePressed && !this.prevFire : this.input.firePressed;
+    this.prevFire = this.input.firePressed;
+
+    if (wpn.reloading) return;
+    if (wantFire && now - this.lastFireTime > minInterval) {
+      this.lastFireTime = now;
       this.fireSequence++;
       const origin = new THREE.Vector3();
       this.scene.camera.getWorldPosition(origin);
@@ -257,12 +271,15 @@ export class GameClient {
       });
       this.audio.playGunshot(w.id);
       this.muzzleFlash.intensity = 3;
+      // Visual recoil kick: larger for heavier weapons, softer while aiming.
+      const heavy = w.type === "shotgun" || w.type === "bolt" || w.type === "marksman";
+      const kickScale = (this.ads ? 0.6 : 1.0) * (heavy ? 1.6 : 1.0);
+      this.recoilKick = Math.min(0.12, this.recoilKick + w.recoilVertical * 6 * kickScale);
 
-      // Tracer
       const end = origin.clone().add(dir.multiplyScalar(100));
       const tracer = createTracer(origin, end);
       this.scene.scene.add(tracer);
-      this.effects.push({ type: "tracer", obj: tracer, life: 0.1 } as any);
+      this.effects.push({ type: "tracer", obj: tracer, life: 0.08 } as any);
     }
     this.muzzleFlash.intensity *= 0.7;
   }
@@ -274,15 +291,19 @@ export class GameClient {
     this.scene.camera.position.set(p.x, eyeY, p.z);
     this.scene.camera.rotation.order = "YXZ";
     this.scene.camera.rotation.y = this.input.mouse.x;
-    this.scene.camera.rotation.x = this.input.mouse.y;
+    // Recover visual recoil kick and apply it as an upward pitch nudge.
+    this.recoilKick *= 0.82;
+    this.scene.camera.rotation.x = this.input.mouse.y + this.recoilKick;
 
-    const fov = this.ads ? 60 : 75;
-    this.scene.camera.fov += (fov - this.scene.camera.fov) * 0.1;
+    const zoom = this.localPlayer.weapon ? getWeapon(this.localPlayer.weapon.id)?.adsZoom ?? 1.1 : 1.1;
+    const fov = this.ads ? 75 / zoom : 75;
+    this.scene.camera.fov += (fov - this.scene.camera.fov) * 0.15;
     this.scene.camera.updateProjectionMatrix();
 
-    const moving = Math.abs((this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0)) > 0;
-    this.weaponView.setWeapon("rust_pistol");
-    this.weaponView.update(1 / 60, this.ads, moving, { x: 0, y: 0 });
+    const moving =
+      Math.abs((this.input.keys.has("KeyW") ? 1 : 0) - (this.input.keys.has("KeyS") ? 1 : 0)) > 0 ||
+      Math.abs((this.input.keys.has("KeyA") ? 1 : 0) - (this.input.keys.has("KeyD") ? 1 : 0)) > 0;
+    this.weaponView.update(1 / 60, this.ads, moving, { x: this.recoilKick * 4, y: 0 });
   }
 
   private updateEntities(): void {

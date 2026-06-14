@@ -42,7 +42,7 @@ export class HUD {
     this.debug = !this.debug;
   }
 
-  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number } } | null, locked: boolean, camera: THREE.Camera): void {
+  update(player: { health: number; armor: number; inSafeZone: boolean; currentLocationId?: string; position: { x: number; z: number }; weapon?: { name: string; ammoInMag: number; magazineSize: number; reserve: number; reloading: boolean } } | null, locked: boolean, camera: THREE.Camera): void {
     this.render(player, locked, camera);
   }
 
@@ -54,6 +54,23 @@ export class HUD {
     const debugInfo = this.debug && player && camera
       ? `<div class="debug">Pos: ${player.position.x.toFixed(1)}, ${player.position.z.toFixed(1)} | Ping: ${this.ping}ms | ${location}</div>`
       : "";
+
+    const w = player?.weapon;
+    const ammoText = w
+      ? w.reloading
+        ? `<span class="reloading">RELOADING…</span>`
+        : `${w.ammoInMag} <span class="ammo-sep">/</span> ${w.magazineSize} <span class="ammo-reserve">(${w.reserve})</span>`
+      : "—";
+    const weaponName = w ? w.name : "Unarmed";
+
+    // Compass heading from camera yaw (Three.js camera looks down -Z at yaw 0).
+    let heading = "N";
+    if (camera) {
+      const yaw = camera.rotation.y;
+      const dirs = ["S", "SW", "W", "NW", "N", "NE", "E", "SE"];
+      const idx = Math.round(((yaw / (Math.PI * 2)) % 1) * 8) % 8;
+      heading = dirs[((idx % 8) + 8) % 8];
+    }
 
     this.root.innerHTML = `
       ${crosshair}
@@ -68,8 +85,9 @@ export class HUD {
         <div class="stats">HP ${Math.floor(player?.health ?? 0)} | ARMOR ${Math.floor(player?.armor ?? 0)}</div>
       </div>
       <div class="hud-bottom-right">
-        <div class="ammo">-- / --</div>
-        <div class="compass">N</div>
+        <div class="weapon-name">${weaponName}</div>
+        <div class="ammo">${ammoText}</div>
+        <div class="compass">${heading}</div>
       </div>
       ${debugInfo}
     `;

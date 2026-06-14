@@ -63,41 +63,80 @@ export function createSkiffModel(): THREE.Group {
   const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 4.5), materials.weatheredWood);
   hull.position.y = 0.25;
   g.add(hull);
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.5, 6), materials.weatheredWood);
-  mast.position.set(0, 1.8, 0);
+  // pointed bow
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.6, 4), materials.weatheredWood);
+  bow.rotation.x = -Math.PI / 2;
+  bow.rotation.y = Math.PI / 4;
+  bow.position.set(0, 0.25, -2.8);
+  g.add(bow);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.8, 6), materials.weatheredWood);
+  mast.position.set(0, 2.0, 0.4);
   g.add(mast);
-  const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.2), materials.canvas);
-  sail.position.set(0, 2.2, 0.2);
+  const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.4), materials.canvas);
+  sail.position.set(0, 2.4, 0.4);
   sail.rotation.y = Math.PI / 2;
   g.add(sail);
+  g.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
   return g;
 }
 
 export function createCrateModel(): THREE.Mesh {
-  return new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), materials.crate);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), materials.crate);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
 }
 
 export function createBarrelModel(): THREE.Mesh {
-  return new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 12), materials.rustedMetal);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 14), materials.barrel);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
 }
 
 export function createPalmTreeModel(): THREE.Group {
   const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 3, 6), materials.weatheredWood);
-  trunk.position.y = 1.5;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 3.4, 7), materials.weatheredWood);
+  trunk.position.y = 1.7;
   g.add(trunk);
-  const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.2, 0.6, 7), materials.grass);
-  leaves.position.y = 3.2;
-  g.add(leaves);
+  // a few angled fronds instead of a single cone
+  const leafMat = materials.grass;
+  for (let i = 0; i < 6; i++) {
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.0, 4), leafMat);
+    const a = (i / 6) * Math.PI * 2;
+    leaf.position.set(Math.sin(a) * 0.5, 3.4, Math.cos(a) * 0.5);
+    leaf.rotation.z = 0.7;
+    leaf.rotation.y = a;
+    g.add(leaf);
+  }
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.5, 6), leafMat);
+  top.position.y = 3.5;
+  g.add(top);
+  g.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
   return g;
 }
 
 export function createRockCluster(): THREE.Group {
   const g = new THREE.Group();
   for (let i = 0; i < 4; i++) {
-    const r = 0.3 + Math.random() * 0.5;
+    const r = 0.3 + Math.random() * 0.6;
     const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), materials.rock);
-    rock.position.set((Math.random() - 0.5) * 1.5, r * 0.5, (Math.random() - 0.5) * 1.5);
+    rock.position.set((Math.random() - 0.5) * 1.6, r * 0.5, (Math.random() - 0.5) * 1.6);
+    rock.rotation.set(Math.random(), Math.random(), Math.random());
+    rock.castShadow = true;
+    rock.receiveShadow = true;
     g.add(rock);
   }
   return g;
@@ -105,38 +144,65 @@ export function createRockCluster(): THREE.Group {
 
 export function createFortWall(): THREE.Group {
   const g = new THREE.Group();
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 3, 1), materials.concrete);
-  wall.position.y = 1.5;
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 3.4, 1), materials.concrete);
+  wall.position.y = 1.7;
   g.add(wall);
-  const cren = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, 1.1), materials.concrete);
-  cren.position.set(-3, 3.2, 0);
-  g.add(cren);
-  const cren2 = cren.clone();
-  cren2.position.set(3, 3.2, 0);
-  g.add(cren2);
+  for (const dx of [-3, -1, 1, 3]) {
+    const cren = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1.1), materials.concrete);
+    cren.position.set(dx, 3.5, 0);
+    g.add(cren);
+  }
+  g.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
   return g;
 }
 
 export function createBunker(): THREE.Group {
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.BoxGeometry(6, 2.5, 6), materials.concrete);
-  base.position.y = 1.25;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(6, 2.8, 6), materials.concrete);
+  base.position.y = 1.4;
   g.add(base);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.4, 6.4), materials.concrete);
+  roof.position.y = 3.0;
+  g.add(roof);
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 0.2), materials.rustedMetal);
   door.position.set(0, 0.9, 3.05);
   g.add(door);
+  g.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
   return g;
 }
 
 export function createCrashedShipPiece(): THREE.Group {
   const g = new THREE.Group();
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 8), materials.weatheredWood);
-  hull.rotation.z = 0.2;
-  hull.position.y = 0.8;
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.8, 9), materials.rustedMetal);
+  hull.rotation.z = 0.18;
+  hull.position.y = 0.9;
   g.add(hull);
-  const containers = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 3), materials.rustedMetal);
-  containers.position.set(1.5, 1.2, 1);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.2, 8), materials.weatheredWood);
+  deck.rotation.z = 0.18;
+  deck.position.y = 1.9;
+  g.add(deck);
+  const containers = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 3.2), materials.rustedMetal);
+  containers.position.set(1.5, 1.4, 1);
   g.add(containers);
+  g.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
   return g;
 }
 

@@ -284,10 +284,31 @@ export class World {
       };
     }
     const pos = player.position;
+    const players = this.interest
+      .getVisibleEntities(pos, Array.from(this.players.values()))
+      .map((p) => this.getPlayerSnapshot(p));
+
+    // Only the local player learns its own weapon/ammo state.
+    const self = players.find((p) => p.playerId === playerId);
+    if (self) {
+      const w = player.getEquippedWeapon();
+      const def = w ? getWeapon(w.weaponId) : undefined;
+      if (w && def) {
+        self.weapon = {
+          id: def.id,
+          name: def.name,
+          ammoInMag: w.ammoInMag,
+          magazineSize: def.magazineSize,
+          reserve: player.countAmmo(def.ammoType),
+          reloading: w.reloading,
+        };
+      }
+    }
+
     return {
       tick: this.tickCount,
       time: Date.now(),
-      players: this.interest.getVisibleEntities(pos, Array.from(this.players.values())).map((p) => this.getPlayerSnapshot(p)),
+      players,
       boats: this.interest.getVisibleEntities(pos, Array.from(this.boats.values())).map((b) => b.serialize()),
       ais: this.interest.getVisibleEntities(pos, Array.from(this.ais.values())).map((a) => a.serialize()),
       loot: this.interest.getVisibleEntities(pos, Array.from(this.loot.values())).map((l) => l.serialize()),

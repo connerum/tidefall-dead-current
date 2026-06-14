@@ -276,8 +276,12 @@ export class PlayerEntity extends Entity {
     if (!this.isAlive) return;
 
     // Movement
+    // The client camera (Three.js, YXZ order) looks down -Z by default, so its
+    // horizontal forward at a given yaw is (-sin(yaw), 0, -cos(yaw)) and its
+    // right vector is (cos(yaw), 0, -sin(yaw)). Movement must match the camera
+    // or WASD feels reversed (forward walking you backward, etc).
     const speed = this.getMovementSpeed();
-    const forward = { x: Math.sin(this.yaw), y: 0, z: Math.cos(this.yaw) };
+    const forward = { x: -Math.sin(this.yaw), y: 0, z: -Math.cos(this.yaw) };
     const right = { x: Math.cos(this.yaw), y: 0, z: -Math.sin(this.yaw) };
     let move = { x: 0, y: 0, z: 0 };
     move.x += forward.x * this.inputForward + right.x * this.inputRight;
