@@ -99,6 +99,23 @@ export function getIslandCollisions(loc: LocationDefinition): CollisionShape[] {
   return shapes;
 }
 
+/**
+ * Check if a boat at (x, z) would be on land (too far inside an island).
+ * Each island has a shore buffer: boats can enter up to that depth past
+ * the waterline for docking, but can't drive deep inland.
+ * Safe zones (Haven) get a larger buffer so boats can navigate the harbor.
+ */
+export function isBoatOnLand(x: number, z: number): boolean {
+  for (const loc of Object.values(LOCATIONS)) {
+    const dx = x - loc.position.x;
+    const dz = z - loc.position.z;
+    const shoreBuffer = loc.riskLevel === "safe" ? 100 : 35;
+    const limit = loc.radius - shoreBuffer;
+    if (dx * dx + dz * dz < limit * limit) return true;
+  }
+  return false;
+}
+
 let cachedShapes: CollisionShape[] | null = null;
 
 export function getAllCollisionShapes(): CollisionShape[] {

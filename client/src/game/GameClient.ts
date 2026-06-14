@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BALANCE, getAllCollisionShapes, checkCollisionCircle, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { BALANCE, getAllCollisionShapes, checkCollisionCircle, isBoatOnLand, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -318,8 +318,15 @@ export class GameClient {
     const boost = this.input.keys.has("ShiftLeft") || this.input.keys.has("ShiftRight");
     const speed = (boost ? cfg.boost : cfg.speed) * throttle;
     const rot = this.drivenBoat.rot;
+    const oldX = this.drivenBoat.pos.x;
+    const oldZ = this.drivenBoat.pos.z;
     this.drivenBoat.pos.x += Math.sin(rot) * speed * dt;
     this.drivenBoat.pos.z += Math.cos(rot) * speed * dt;
+    // Prevent driving onto land — must match server BoatEntity.tick().
+    if (isBoatOnLand(this.drivenBoat.pos.x, this.drivenBoat.pos.z)) {
+      this.drivenBoat.pos.x = oldX;
+      this.drivenBoat.pos.z = oldZ;
+    }
     this.drivenBoat.rot += steer * cfg.turnSpeed * dt * (throttle !== 0 ? 1 : 0.4);
     this.predicted.copy(this.drivenBoat.pos);
   }

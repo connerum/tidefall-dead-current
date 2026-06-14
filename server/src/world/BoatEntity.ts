@@ -1,4 +1,4 @@
-import { BALANCE, type ItemStack, getItem, normalizeVec3, scaleVec3, type Vec3 } from "@tidefall/shared";
+import { BALANCE, isBoatOnLand, type ItemStack, getItem, normalizeVec3, scaleVec3, type Vec3 } from "@tidefall/shared";
 import { Entity } from "./Entity.js";
 
 export class BoatEntity extends Entity {
@@ -61,8 +61,17 @@ export class BoatEntity extends Entity {
     const forward = { x: Math.sin(this.rotation), y: 0, z: Math.cos(this.rotation) };
     this.velocity.x = forward.x * speed;
     this.velocity.z = forward.z * speed;
+    const oldX = this.position.x;
+    const oldZ = this.position.z;
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
+    // Prevent driving onto land — revert if the new position is inland.
+    if (isBoatOnLand(this.position.x, this.position.z)) {
+      this.position.x = oldX;
+      this.position.z = oldZ;
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+    }
     this.rotation += this.steering * cfg.turnSpeed * dt * (this.throttle !== 0 ? 1 : 0.4);
     this.lastUsedAt = Date.now();
   }

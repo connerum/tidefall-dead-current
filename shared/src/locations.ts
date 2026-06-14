@@ -15,8 +15,8 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     hasWorkbench: true,
     hasStash: true,
     docks: [
-      { x: 40, y: 0, z: 80 },
-      { x: -40, y: 0, z: 80 },
+      { x: 0, y: 0, z: 185 },
+      { x: 65, y: 0, z: 174 },
     ],
   },
   driftwood_cay: {
