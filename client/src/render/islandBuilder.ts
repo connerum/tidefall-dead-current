@@ -60,21 +60,25 @@ const COL_ROCK = new THREE.Color(0x9a9488);
 
 /**
  * Build the walkable top surface of an island. Vertices are displaced with
- * layered value noise so the ground has rolling dunes / hills instead of
- * being a flat disc, and per-vertex colours blend sand (shore) -> grass
- * (inland) -> rock (peaks) over the base material so biomes read naturally.
+ * multi-octave noise centered around y=0 so the average ground height stays
+ * near the server's flat y=0 plane, while the visible terrain gains real
+ * hills, valleys, ridges and plateaus.
  */
 function buildTerrainTop(radius: number, biome: string, tile: number, seed: number): THREE.Mesh {
-  const geo = new THREE.CircleGeometry(radius, 56, 0, Math.PI * 2);
+  const geo = new THREE.CircleGeometry(radius, 80, 0, Math.PI * 2);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
 
-  const natural = biome === "tropical";
-  // Keep relief subtle: the authoritative server treats the ground as a flat
-  // plane (y=0), so large displacement would make the camera clip into hills
-  // or float above valleys. Gentle dunes add life without breaking movement.
-  const amp = natural ? 0.6 : biome === "fort" || biome === "wreck" ? 0.4 : 0.3;
+  // Biome-specific amplitude — how dramatic the elevation changes are.
+  const amp =
+    biome === "tropical" ? 2.5 :
+    biome === "wreck" ? 2.2 :
+    biome === "fort" ? 2.0 :
+    biome === "industrial" ? 1.5 :
+    biome === "military" ? 1.2 :
+    0.5; // harbor
+
   const c = new THREE.Color();
 
   for (let i = 0; i < pos.count; i++) {
@@ -82,21 +86,48 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
     const z = pos.getZ(i);
     const dist = Math.hypot(x, z) / radius; // 0 centre -> ~1 edge
     const edge = THREE.MathUtils.clamp(dist, 0, 1);
-    const relief = natural ? 1.0 - edge * 0.85 : 1.0 - edge * 0.6;
-    // multi-scale noise for big dunes + small detail
-    const n1 = fbm(x * 0.012, z * 0.012, 4, seed, 9999);
-    const n2 = fbm(x * 0.05, z * 0.05, 3, seed + 50, 9999);
-    let h = (n1 * 0.75 + n2 * 0.25) * amp * relief;
-    if (natural) h += Math.pow(1 - edge, 2) * 0.2; // gentle central mound
+
+    // Flatten near the shore so the waterline stays clean.
+    const shoreFade = 1.0 - Math.pow(THREE.MathUtils.clamp((edge - 0.7) / 0.3, 0, 1), 2);
+
+    // Three octaves of centred noise: large hills + medium detail + fine bumps.
+    const n1 = fbm(x * 0.008, z * 0.008, 5, seed, 9999);
+    const n2 = fbm(x * 0.028, z * 0.028, 4, seed + 50, 9999);
+    const n3 = fbm(x * 0.09, z * 0.09, 2, seed + 100, 9999);
+    let h = ((n1 - 0.5) * 2.0 * 0.6 + (n2 - 0.5) * 2.0 * 0.3 + (n3 - 0.5) * 2.0 * 0.1) * amp * shoreFade;
+
+    // Biome-specific topology
+    if (biome === "tropical") {
+      h += Math.pow(1 - edge, 3) * 0.6; // gentle central highland
+    } else if (biome === "fort") {
+      // Terraced plateau near centre — discrete elevation steps.
+      const terrace = Math.round(h * 1.5) / 1.5;
+      const blend = THREE.MathUtils.clamp(1 - edge * 1.5, 0, 1);
+      h = h * (1 - blend) + terrace * blend;
+    } else if (biome === "wreck") {
+      // Directional tilt — the ship crashed at an angle.
+      h += x * 0.012;
+    } else if (biome === "industrial") {
+      // Shallow crater-like depressions from old machinery.
+      h -= Math.pow(1 - n2, 4) * 0.4 * shoreFade;
+    } else if (biome === "military") {
+      // Mostly flat with raised berms.
+      h += Math.max(0, (n1 - 0.6) * 3.0) * shoreFade;
+    }
+
     pos.setY(i, h);
 
-    if (natural) {
-      // sand near the shore, grass inland, rock on the peaks
+    // Vertex colour by height and biome.
+    if (biome === "tropical") {
       c.copy(COL_GRASS);
       c.lerp(COL_SAND, THREE.MathUtils.smoothstep(edge, 0.6, 0.95));
-      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 0.35, 0.6) * 0.7);
+      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 1.2, 2.2) * 0.6);
     } else if (biome === "military" || biome === "fort") {
-      c.copy(COL_GRASS).lerp(COL_ROCK, n2 * 0.4);
+      c.copy(COL_GRASS).lerp(COL_ROCK, n2 * 0.5);
+    } else if (biome === "wreck") {
+      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(Math.abs(h), 0.5, 1.8) * 0.5);
+    } else if (biome === "industrial") {
+      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(-h, 0.2, 0.8) * 0.4);
     } else {
       c.copy(COL_GRASS);
     }
@@ -138,9 +169,9 @@ function buildIsland(loc: LocationDefinition): THREE.Group {
         : loc.biome === "military"
           ? tilingMaterial(materials.concrete, surfaceTile)
           : tilingMaterial(materials.rock, surfaceTile);
-  const baseGeo = new THREE.CylinderGeometry(radius, radius * 0.86, 3, 40);
+  const baseGeo = new THREE.CylinderGeometry(radius, radius * 0.8, 7, 48);
   const base = new THREE.Mesh(baseGeo, skirtMat);
-  base.position.y = -1.5;
+  base.position.y = -3.5;
   setShadow(base, true, true);
   g.add(base);
 
