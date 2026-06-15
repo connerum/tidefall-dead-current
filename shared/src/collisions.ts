@@ -109,7 +109,7 @@ export function isBoatOnLand(x: number, z: number): boolean {
   for (const loc of Object.values(LOCATIONS)) {
     const dx = x - loc.position.x;
     const dz = z - loc.position.z;
-    const limit = loc.radius - 5; // boats can just kiss the shoreline
+    const limit = loc.radius; // boats cannot cross the shoreline at all
     if (dx * dx + dz * dz < limit * limit) return true;
   }
   return false;
