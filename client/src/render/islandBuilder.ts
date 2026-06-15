@@ -90,10 +90,11 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
     // Flatten near the shore so the waterline stays clean.
     const shoreFade = 1.0 - Math.pow(THREE.MathUtils.clamp((edge - 0.7) / 0.3, 0, 1), 2);
 
-    // Three octaves of centred noise: large hills + medium detail + fine bumps.
-    const n1 = fbm(x * 0.008, z * 0.008, 5, seed, 9999);
-    const n2 = fbm(x * 0.028, z * 0.028, 4, seed + 50, 9999);
-    const n3 = fbm(x * 0.09, z * 0.09, 2, seed + 100, 9999);
+    // Three octaves of centred noise with frequencies high enough that
+    // multiple hills/valleys fit across each island (was far too low).
+    const n1 = fbm(x * 0.035, z * 0.035, 5, seed, 9999);
+    const n2 = fbm(x * 0.1, z * 0.1, 4, seed + 50, 9999);
+    const n3 = fbm(x * 0.25, z * 0.25, 2, seed + 100, 9999);
     let h = ((n1 - 0.5) * 2.0 * 0.6 + (n2 - 0.5) * 2.0 * 0.3 + (n3 - 0.5) * 2.0 * 0.1) * amp * shoreFade;
 
     // Biome-specific topology
