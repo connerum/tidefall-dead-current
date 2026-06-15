@@ -71,17 +71,23 @@ const COL_ROCK = new THREE.Color(0x9a9488);
  */
 function createIslandGeometry(radius: number, rings: number, segments: number): THREE.BufferGeometry {
   const positions: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
 
   // Centre vertex
   positions.push(0, 0, 0);
+  uvs.push(0.5, 0.5);
 
   // Concentric rings of vertices in the XZ plane (Y = 0, displaced later)
   for (let r = 1; r <= rings; r++) {
     const rr = (r / rings) * radius;
+    const t = r / rings; // 0 centre → 1 edge, for UV
     for (let s = 0; s < segments; s++) {
       const a = (s / segments) * Math.PI * 2;
-      positions.push(Math.cos(a) * rr, 0, Math.sin(a) * rr);
+      const cx = Math.cos(a);
+      const sz = Math.sin(a);
+      positions.push(cx * rr, 0, sz * rr);
+      uvs.push(0.5 + cx * t * 0.5, 0.5 + sz * t * 0.5);
     }
   }
 
@@ -103,6 +109,7 @@ function createIslandGeometry(radius: number, rings: number, segments: number): 
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
   return geo;
 }
@@ -112,14 +119,15 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
 
-  // Biome-specific amplitude — how dramatic the elevation changes are.
+  // Biome-specific amplitude — kept modest so the visual terrain stays
+  // close to the server's flat y=0 ground and players don't clip badly.
   const amp =
-    biome === "tropical" ? 2.5 :
-    biome === "wreck" ? 2.2 :
-    biome === "fort" ? 2.0 :
-    biome === "industrial" ? 1.5 :
-    biome === "military" ? 1.2 :
-    0.5; // harbor
+    biome === "tropical" ? 0.8 :
+    biome === "wreck" ? 0.7 :
+    biome === "fort" ? 0.6 :
+    biome === "industrial" ? 0.5 :
+    biome === "military" ? 0.4 :
+    0.2; // harbor
 
   const c = new THREE.Color();
 
@@ -141,21 +149,21 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
 
     // Biome-specific topology
     if (biome === "tropical") {
-      h += Math.pow(1 - edge, 3) * 0.6; // gentle central highland
+      h += Math.pow(1 - edge, 3) * 0.2; // gentle central highland
     } else if (biome === "fort") {
       // Terraced plateau near centre — discrete elevation steps.
-      const terrace = Math.round(h * 1.5) / 1.5;
+      const terrace = Math.round(h * 3) / 3;
       const blend = THREE.MathUtils.clamp(1 - edge * 1.5, 0, 1);
       h = h * (1 - blend) + terrace * blend;
     } else if (biome === "wreck") {
       // Directional tilt — the ship crashed at an angle.
-      h += x * 0.012;
+      h += x * 0.003;
     } else if (biome === "industrial") {
       // Shallow crater-like depressions from old machinery.
-      h -= Math.pow(1 - n2, 4) * 0.4 * shoreFade;
+      h -= Math.pow(1 - n2, 4) * 0.15 * shoreFade;
     } else if (biome === "military") {
       // Mostly flat with raised berms.
-      h += Math.max(0, (n1 - 0.6) * 3.0) * shoreFade;
+      h += Math.max(0, (n1 - 0.6) * 1.0) * shoreFade;
     }
 
     pos.setY(i, h);
@@ -164,13 +172,13 @@ function buildTerrainTop(radius: number, biome: string, tile: number, seed: numb
     if (biome === "tropical") {
       c.copy(COL_GRASS);
       c.lerp(COL_SAND, THREE.MathUtils.smoothstep(edge, 0.6, 0.95));
-      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 1.2, 2.2) * 0.6);
+      c.lerp(COL_ROCK, THREE.MathUtils.smoothstep(h, 0.3, 0.6) * 0.6);
     } else if (biome === "military" || biome === "fort") {
       c.copy(COL_GRASS).lerp(COL_ROCK, n2 * 0.5);
     } else if (biome === "wreck") {
-      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(Math.abs(h), 0.5, 1.8) * 0.5);
+      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(Math.abs(h), 0.2, 0.5) * 0.5);
     } else if (biome === "industrial") {
-      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(-h, 0.2, 0.8) * 0.4);
+      c.copy(COL_GRASS).lerp(COL_ROCK, THREE.MathUtils.smoothstep(-h, 0.1, 0.3) * 0.4);
     } else {
       c.copy(COL_GRASS);
     }
