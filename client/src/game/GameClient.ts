@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BALANCE, getAllCollisionShapes, checkCollisionCircle, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { BALANCE, getAllCollisionShapes, checkCollisionCircle, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, PLAYER_JUMP_VELOCITY, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -60,6 +60,8 @@ export class GameClient {
   // choppy.
   private predicted = new THREE.Vector3();
   private predictedInit = false;
+  private predictedVelY = 0;
+  private predictedOnGround = true;
   private prevTime = 0;
   // Client-side prediction for the boat the local player is driving, so the
   // ride is smooth instead of stuttering toward 20 Hz server snapshots.
@@ -231,7 +233,7 @@ export class GameClient {
     this.prevTime = now;
 
     this.input.update();
-    this.updateLocalPlayer();
+    this.updateLocalPlayer(dt);
     this.applyLocalMovement(dt);
     this.updatePrompt();
     if (this.localPlayer) this.mapUI.setPlayer(this.predicted.x, this.predicted.z, this.input.mouse.x);
@@ -293,8 +295,19 @@ export class GameClient {
         }
       }
     }
-    // smooth vertical toward the authoritative ground/jump height
-    this.predicted.y += (this.localPlayer.position.y - this.predicted.y) * Math.min(1, dt * 12);
+    // Predict vertical movement (jump / gravity) using the same physics as
+    // the server so the camera responds instantly instead of lerping.
+    if (this.input.keys.has("Space") && this.predictedOnGround) {
+      this.predictedVelY = PLAYER_JUMP_VELOCITY;
+      this.predictedOnGround = false;
+    }
+    this.predictedVelY -= BALANCE.player.gravity * dt;
+    this.predicted.y += this.predictedVelY * dt;
+    if (this.predicted.y <= 0) {
+      this.predicted.y = 0;
+      this.predictedVelY = 0;
+      this.predictedOnGround = true;
+    }
   }
 
   /**
@@ -392,7 +405,7 @@ export class GameClient {
     }
   }
 
-  private updateLocalPlayer(): void {
+  private updateLocalPlayer(dt: number): void {
     if (!this.remoteData || !this.playerId) return;
     const p = this.remoteData.players.find((x) => x.playerId === this.playerId);
     if (!p) return;
@@ -428,12 +441,32 @@ export class GameClient {
     // No longer driving: drop the boat prediction.
     this.drivenBoat.init = false;
 
-    // Reconcile prediction with the authoritative server position. On first
-    // snapshot, when (re)spawning, or when we've drifted past a threshold
-    // (server correction), snap directly; otherwise trust the local prediction.
+    // Reconcile prediction with the authoritative server position.
+    // Snap on first snapshot / respawn / large drift; otherwise apply a
+    // gentle invisible correction so small prediction errors never build
+    // up to a visible rubber-band.
     const drift = Math.hypot(p.position.x - this.predicted.x, p.position.z - this.predicted.z);
-    if (!this.predictedInit || !p.isAlive || drift > 2.0) {
+    if (!this.predictedInit || !p.isAlive || drift > 3.0) {
       this.predicted.set(p.position.x, p.position.y, p.position.z);
+      this.predictedVelY = 0;
+      this.predictedOnGround = p.position.y <= 0.01;
+    } else {
+      // Smooth horizontal correction
+      if (drift > 0.03) {
+        const rate = Math.min(1, dt * 10);
+        this.predicted.x += (p.position.x - this.predicted.x) * rate;
+        this.predicted.z += (p.position.z - this.predicted.z) * rate;
+      }
+      // Smooth vertical correction — snap on large discrepancy (landing,
+      // teleport), gentle nudge on small drift
+      const yDrift = p.position.y - this.predicted.y;
+      if (Math.abs(yDrift) > 0.5) {
+        this.predicted.y = p.position.y;
+        this.predictedVelY = 0;
+        this.predictedOnGround = p.position.y <= 0.01;
+      } else if (Math.abs(yDrift) > 0.02) {
+        this.predicted.y += yDrift * Math.min(1, dt * 10);
+      }
     }
     this.predictedInit = true;
   }
