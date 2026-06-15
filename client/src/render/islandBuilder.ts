@@ -64,9 +64,51 @@ const COL_ROCK = new THREE.Color(0x9a9488);
  * near the server's flat y=0 plane, while the visible terrain gains real
  * hills, valleys, ridges and plateaus.
  */
+/**
+ * Create a circular terrain mesh with many concentric rings of vertices
+ * so displacement noise actually resolves across the interior — unlike
+ * CircleGeometry which only has a centre vertex and a perimeter ring.
+ */
+function createIslandGeometry(radius: number, rings: number, segments: number): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const indices: number[] = [];
+
+  // Centre vertex
+  positions.push(0, 0, 0);
+
+  // Concentric rings of vertices in the XZ plane (Y = 0, displaced later)
+  for (let r = 1; r <= rings; r++) {
+    const rr = (r / rings) * radius;
+    for (let s = 0; s < segments; s++) {
+      const a = (s / segments) * Math.PI * 2;
+      positions.push(Math.cos(a) * rr, 0, Math.sin(a) * rr);
+    }
+  }
+
+  // Centre fan (centre → ring 1)
+  for (let s = 0; s < segments; s++) {
+    indices.push(0, 1 + s, 1 + ((s + 1) % segments));
+  }
+
+  // Quads between consecutive rings
+  for (let r = 0; r < rings - 1; r++) {
+    const inner = 1 + r * segments;
+    const outer = 1 + (r + 1) * segments;
+    for (let s = 0; s < segments; s++) {
+      const sn = (s + 1) % segments;
+      indices.push(inner + s, outer + s, outer + sn);
+      indices.push(inner + s, outer + sn, inner + sn);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  return geo;
+}
+
 function buildTerrainTop(radius: number, biome: string, tile: number, seed: number): THREE.Mesh {
-  const geo = new THREE.CircleGeometry(radius, 80, 0, Math.PI * 2);
-  geo.rotateX(-Math.PI / 2);
+  const geo = createIslandGeometry(radius, 24, 72);
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
 
