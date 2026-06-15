@@ -1,5 +1,25 @@
-import { BALANCE, isBoatOnLand, type ItemStack, getItem, normalizeVec3, scaleVec3, type Vec3 } from "@tidefall/shared";
+import { BALANCE, type ItemStack, getItem, normalizeVec3, scaleVec3, type Vec3 } from "@tidefall/shared";
 import { Entity } from "./Entity.js";
+
+// Island [x, z, radius] — radius includes a 5-unit hull allowance so the
+// boat hull edge stops at the waterline, not the boat center.
+const ISLANDS: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 0, 185],
+  [-550, -450, 135],
+  [520, -380, 155],
+  [-480, 520, 165],
+  [580, 480, 175],
+  [0, -800, 125],
+];
+
+function boatHitsLand(x: number, z: number): boolean {
+  for (const [ix, iz, ir] of ISLANDS) {
+    const dx = x - ix;
+    const dz = z - iz;
+    if (dx * dx + dz * dz < ir * ir) return true;
+  }
+  return false;
+}
 
 export class BoatEntity extends Entity {
   ownerId: string;
@@ -65,8 +85,9 @@ export class BoatEntity extends Entity {
     const oldZ = this.position.z;
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
-    // Prevent driving onto land — revert if the new position is inland.
-    if (isBoatOnLand(this.position.x, this.position.z)) {
+    // Shore collision — inlined so it cannot be tree-shaken or lost in
+    // package resolution. Block when the hull would cross the waterline.
+    if (boatHitsLand(this.position.x, this.position.z)) {
       this.position.x = oldX;
       this.position.z = oldZ;
       this.velocity.x = 0;

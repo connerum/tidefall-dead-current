@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BALANCE, getAllCollisionShapes, checkCollisionCircle, isBoatOnLand, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
+import { BALANCE, getAllCollisionShapes, checkCollisionCircle, raycastEnvironment, getWeapon, PLAYER_WALK_SPEED, PLAYER_SPRINT_SPEED, PLAYER_CROUCH_SPEED, type ItemStack, type PlayerInput, type SerializedAI, type SerializedBoat, type SerializedLoot, type SerializedPlayer, type ServerMessage, type WorldSnapshot } from "@tidefall/shared";
 import type { NetworkClient } from "./NetworkClient.js";
 import { InputController } from "./InputController.js";
 import { SceneBuilder } from "./SceneBuilder.js";
@@ -322,8 +322,8 @@ export class GameClient {
     const oldZ = this.drivenBoat.pos.z;
     this.drivenBoat.pos.x += Math.sin(rot) * speed * dt;
     this.drivenBoat.pos.z += Math.cos(rot) * speed * dt;
-    // Prevent driving onto land — must match server BoatEntity.tick().
-    if (isBoatOnLand(this.drivenBoat.pos.x, this.drivenBoat.pos.z)) {
+    // Shore collision — inlined to match server BoatEntity.tick() exactly.
+    if (boatHitsLand(this.drivenBoat.pos.x, this.drivenBoat.pos.z)) {
       this.drivenBoat.pos.x = oldX;
       this.drivenBoat.pos.z = oldZ;
     }
@@ -744,6 +744,26 @@ export class GameClient {
       }
     }
   }
+}
+
+// Shore collision — must match server BoatEntity.ts exactly.
+// Island [x, z, effectiveRadius] where effectiveRadius = terrainRadius + 5 (hull).
+const ISLANDS: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 0, 185],
+  [-550, -450, 135],
+  [520, -380, 155],
+  [-480, 520, 165],
+  [580, 480, 175],
+  [0, -800, 125],
+];
+
+function boatHitsLand(x: number, z: number): boolean {
+  for (const [ix, iz, ir] of ISLANDS) {
+    const dx = x - ix;
+    const dz = z - iz;
+    if (dx * dx + dz * dz < ir * ir) return true;
+  }
+  return false;
 }
 
 /** Floating player name tag that always faces the camera. */

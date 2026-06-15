@@ -15,8 +15,8 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     hasWorkbench: true,
     hasStash: true,
     docks: [
-      { x: 0, y: 0, z: 185 },
-      { x: 65, y: 0, z: 174 },
+      { x: 0, y: 0, z: 190 },
+      { x: 65, y: 0, z: 182 },
     ],
   },
   driftwood_cay: {
@@ -37,7 +37,7 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     contractObjectives: ["clear_driftwood"],
     hasWorkbench: false,
     hasStash: false,
-    docks: [{ x: -550, y: 0, z: -315 }],
+    docks: [{ x: -550, y: 0, z: -310 }],
   },
   ironhook_fort: {
     id: "ironhook_fort",
@@ -59,7 +59,7 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     contractObjectives: ["weapons_crate"],
     hasWorkbench: true,
     hasStash: false,
-    docks: [{ x: 520, y: 0, z: -235 }],
+    docks: [{ x: 520, y: 0, z: -220 }],
   },
   blackreef_shipyard: {
     id: "blackreef_shipyard",
@@ -82,7 +82,7 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     contractObjectives: ["machine_core"],
     hasWorkbench: true,
     hasStash: false,
-    docks: [{ x: -480, y: 0, z: 675 }],
+    docks: [{ x: -480, y: 0, z: 690 }],
   },
   crown_battery: {
     id: "crown_battery",
@@ -105,7 +105,7 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     contractObjectives: ["signal_core"],
     hasWorkbench: true,
     hasStash: false,
-    docks: [{ x: 580, y: 0, z: 655 }],
+    docks: [{ x: 580, y: 0, z: 660 }],
   },
   leviathan_wreck: {
     id: "leviathan_wreck",
@@ -127,8 +127,8 @@ export const LOCATIONS: Record<string, LocationDefinition> = {
     hasWorkbench: false,
     hasStash: false,
     docks: [
-      { x: -115, y: 0, z: -800 },
-      { x: 115, y: 0, z: -800 },
+      { x: -130, y: 0, z: -800 },
+      { x: 130, y: 0, z: -800 },
     ],
   },
 };
